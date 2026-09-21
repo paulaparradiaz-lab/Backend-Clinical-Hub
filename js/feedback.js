@@ -20,7 +20,6 @@ const NOTAS = [["","Todas"], ["5","5 ★"], ["4","4 ★"], ["3","3 ★"], ["2","
    1. Armazón de la pestaña
    ============================================================ */
 export async function render(){
-  estilos();
   $("#vista").innerHTML = armazon();
   conectar();
   await cargar();
@@ -37,23 +36,23 @@ function armazon(){
   </div>
 
   <div class="filtros-fila">
-        <span class="rotulo">Fuente</span>
-        <div class="filtros" id="f-canal" role="group" aria-label="Fuente"></div>
-      </div>
-      <div class="filtros-fila">
-        <span class="rotulo">Periodo</span>
-        <div class="filtros" id="f-rango" role="group" aria-label="Periodo"></div>
-      </div>
-      <div class="filtros-fila">
-        <span class="rotulo">Reseñas</span>
-        <div class="filtros" id="f-notas" role="group" aria-label="Reseñas"></div>
-      </div>
-      <div class="filtros-fila">
-        <span class="rotulo">Filtros</span>
-        <div class="filtros" id="f-foco" role="group" aria-label="Foco"></div>
-        <select class="campo compacto" id="f-etiqueta" aria-label="Etiqueta"></select>
-        <input class="campo compacto buscador" id="f-texto" type="search" placeholder="Buscar en los comentarios…">
-      </div>
+    <span class="rotulo">Fuente</span>
+    <div class="filtros" id="f-canal" role="group" aria-label="Fuente"></div>
+  </div>
+  <div class="filtros-fila">
+    <span class="rotulo">Periodo</span>
+    <div class="filtros" id="f-rango" role="group" aria-label="Periodo"></div>
+  </div>
+  <div class="filtros-fila">
+    <span class="rotulo">Reseñas</span>
+    <div class="filtros" id="f-notas" role="group" aria-label="Reseñas"></div>
+  </div>
+  <div class="filtros-fila">
+    <span class="rotulo">Filtros</span>
+    <div class="filtros" id="f-foco" role="group" aria-label="Foco"></div>
+    <select class="campo compacto" id="f-etiqueta" aria-label="Etiqueta"></select>
+    <input class="campo compacto buscador" id="f-texto" type="search" placeholder="Buscar en los comentarios…">
+  </div>
 
   <div class="activos" id="activos" hidden></div>
 
@@ -680,52 +679,4 @@ const PALABRAS_PLATAFORMA = ["plataforma","pagina","app","aplicacion","buscador"
 
 function esPlataforma(clave){
   return PALABRAS_PLATAFORMA.some(p => clave.indexOf(p) > -1);
-}
-
-function estilos(){
-  if (document.getElementById("estilos-panel-feedback")) return;
-  const e = document.createElement("style");
-  e.id = "estilos-panel-feedback";
-  e.textContent = [
-    ".filtros-fila{align-items:center}",
-    ".rotulo{font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.55;min-width:64px;display:inline-block}",
-    ".etiqueta.sub{display:block;margin:14px 0 4px}",
-    ".tabla tr.pinchable{cursor:pointer}",
-    ".tabla tr.pinchable:hover td{background:rgba(127,127,127,.09)}",
-    ".tabla tr.activa td{background:rgba(47,111,237,.14);font-weight:600}",
-    ".lineas{width:100%;height:auto;display:block}",
-    ".lineas .banda{opacity:.09}",
-    ".lineas .banda.verde{fill:#18a058}",
-    ".lineas .banda.azul{fill:#2f6fed}",
-    ".lineas .banda.roja{fill:#d64545}",
-    ".lineas .guia{stroke:currentColor;opacity:.15;stroke-width:1;stroke-dasharray:3 5}",
-    ".lineas .eje{font-size:11px;fill:currentColor;opacity:.55}",
-    ".lineas .tramo{stroke-width:2.5;stroke-linecap:round}",
-    ".lineas .valor{font-size:12px;font-weight:700}",
-    ".lineas .bolita{stroke:#fff;stroke-width:2}",
-    ".lineas .punto-vacio{fill:currentColor;opacity:.25}",
-    ".lineas .aura{opacity:.3;transform-box:fill-box;transform-origin:center;animation:pulso 2s ease-out infinite}",
-    "@keyframes pulso{0%{transform:scale(.7);opacity:.4}70%{transform:scale(1.9);opacity:0}100%{transform:scale(1.9);opacity:0}}",
-    ".festejo{display:flex;align-items:center;gap:10px;margin:6px 0 0;font-size:13px}",
-    ".festejo b{color:#18a058}",
-    ".chispas{position:relative;display:inline-block;width:32px;height:18px;flex:none}",
-    ".chispas i{position:absolute;bottom:2px;width:5px;height:5px;border-radius:1px;opacity:0;animation:confeti 1.8s ease-in-out infinite}",
-    ".chispas i:nth-child(1){left:0;background:#18a058;animation-delay:0s}",
-    ".chispas i:nth-child(2){left:6px;background:#2f6fed;animation-delay:.2s}",
-    ".chispas i:nth-child(3){left:12px;background:#f2b705;animation-delay:.4s}",
-    ".chispas i:nth-child(4){left:18px;background:#d64545;animation-delay:.6s}",
-    ".chispas i:nth-child(5){left:24px;background:#18a058;animation-delay:.8s}",
-    ".chispas i:nth-child(6){left:9px;background:#f2b705;animation-delay:1s}",
-    "@keyframes confeti{0%{transform:translateY(0) rotate(0deg);opacity:0}25%{opacity:1}100%{transform:translateY(-16px) rotate(200deg);opacity:0}}",
-    ".activos{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 2px}",
-    ".activos .rotulo{min-width:auto}",
-    ".ficha{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(190,240,60,.45);background:rgba(190,240,60,.12);color:inherit;border-radius:999px;padding:5px 11px;font:inherit;font-size:12.5px;line-height:1.2;cursor:pointer}",
-    ".ficha:hover{background:rgba(190,240,60,.22)}",
-    ".ficha span{opacity:.6;font-size:15px;line-height:1}",
-    ".ficha.limpiar{border-style:dashed;border-color:rgba(127,127,127,.55);background:transparent;opacity:.75}",
-    ".ficha.limpiar:hover{opacity:1;background:rgba(127,127,127,.12)}",
-    "select.filtrando{border-color:rgba(190,240,60,.6);box-shadow:inset 0 0 0 1px rgba(190,240,60,.35)}",
-    "@media (prefers-reduced-motion: reduce){.lineas .aura,.chispas i{animation:none;opacity:.6}}"
-  ].join("\n");
-  document.head.appendChild(e);
 }
