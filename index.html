@@ -133,7 +133,7 @@ button{cursor:pointer}
 .marca{display:flex;align-items:center;gap:11px;text-decoration:none;color:var(--ink)}
 .marca-signo{width:5px;height:30px;border-radius:3px;background:var(--brand)}
 .marca-icono{width:32px;height:32px;border-radius:50%;object-fit:cover;display:block;flex:none}
-.acceso-icono{width:44px;height:44px;border-radius:50%;object-fit:cover;display:block;margin-bottom:16px}
+.acceso-icono{width:58px;height:58px;border-radius:50%;object-fit:cover;display:block;flex:none;margin-bottom:16px}
 .marca-nombre{font-weight:800;font-size:17px;letter-spacing:-.01em;line-height:1.1}
 .marca-sub{display:block;margin-top:2px}
 
@@ -258,9 +258,9 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
 /* ---------- Chiste de la entrada: marca → trabajo + tiempo → plata ----------
    El estado final es el estilo base; las animaciones solo cuentan cómo se llega.
    Con "reducir movimiento" se ve directamente el final. Clic para repetir. */
-.acceso-marca{display:flex;align-items:flex-start;gap:6px;margin-bottom:16px;cursor:pointer;width:100%}
+.acceso-marca{display:flex;align-items:flex-start;justify-content:center;gap:8px;margin:4px 0 22px;cursor:pointer;width:100%}
 .acceso-marca .acceso-icono{margin-bottom:0}
-.chiste{flex:0 1 250px;min-width:0;height:auto;display:block;overflow:visible;color:var(--brand-ink)}
+.chiste{flex:0 1 272px;min-width:0;height:auto;display:block;overflow:visible;color:var(--brand-ink);margin-top:5px}
 .chiste .flecha{fill:none;stroke:var(--faint);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .chiste .trazo{stroke-dasharray:34;stroke-dashoffset:0}
 .chiste .icono{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -311,7 +311,7 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
 <section id="acceso">
   <div class="acceso-caja">
     <div class="acceso-marca" id="chiste" title="Clic para verlo otra vez" aria-hidden="true">
-      <img class="acceso-icono" src="favicon.png" alt="" width="44" height="44" onerror="this.remove()">
+      <img class="acceso-icono" src="favicon.png" alt="" width="58" height="58" onerror="this.remove()">
       <svg class="chiste play" viewBox="0 0 250 58">
         <path class="flecha trazo t1" d="M4 22H38"/>
         <path class="flecha punta p1" d="M33 17l5 5-5 5"/>
