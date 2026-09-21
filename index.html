@@ -25,6 +25,7 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
+[hidden]{display:none!important}
 body{
   background:var(--fondo);
   color:var(--tinta);
@@ -58,19 +59,39 @@ button{font:inherit;cursor:pointer}
 .campo{
   width:100%;padding:11px 13px;border:1px solid var(--linea);
   border-radius:var(--radio);background:var(--superficie);
-  font:inherit;color:var(--tinta);
+  font:inherit;color:var(--tinta);margin-bottom:10px;
 }
 .campo:focus{border-color:var(--primario);outline:none}
+.campo.codigo{
+  font-size:22px;letter-spacing:.3em;text-align:center;
+  font-variant-numeric:tabular-nums;
+}
 .boton{
-  width:100%;margin-top:10px;padding:11px 13px;border:none;
+  width:100%;padding:11px 13px;border:none;
   border-radius:var(--radio);background:var(--primario);color:#fff;
   font-weight:500;
 }
 .boton:hover{background:#0F5748}
 .boton[disabled]{opacity:.5;cursor:default}
-.aviso{margin-top:16px;font-size:14px;line-height:1.5}
+.enlace{
+  background:none;border:none;padding:0;margin-top:18px;
+  color:var(--tinta-suave);text-decoration:underline;font-size:13px;
+}
+.aviso{margin-top:16px;font-size:14px;line-height:1.5;min-height:1.5em}
 .aviso.ok{color:var(--primario)}
 .aviso.mal{color:var(--e1)}
+.qr{
+  background:#fff;border:1px solid var(--linea);border-radius:var(--radio);
+  padding:14px;display:flex;justify-content:center;margin-bottom:12px;
+}
+.qr img{width:180px;height:180px}
+.secreto{
+  font-size:12px;color:var(--tinta-suave);margin:0 0 18px;word-break:break-all;
+}
+.secreto code{
+  font-family:ui-monospace,"SF Mono",Menlo,monospace;color:var(--tinta);
+  background:#EDF1EE;padding:2px 5px;border-radius:3px;
+}
 
 /* ---------- Estructura ---------- */
 #panel{display:none;min-height:100dvh;grid-template-columns:200px 1fr}
@@ -162,16 +183,44 @@ main{padding:32px 36px 64px;max-width:900px}
 </head>
 <body>
 
-<!-- ========== Pantalla de acceso ========== -->
+<!-- ========== Acceso: tres pasos ========== -->
 <section id="acceso">
   <div class="acceso-caja">
     <p class="acceso-marca">Sustancia P</p>
-    <h1>Entra con tu correo</h1>
-    <p>Te enviamos un enlace. Ábrelo desde este mismo dispositivo y quedas dentro.</p>
-    <input class="campo" type="email" id="correo" placeholder="tu@correo.com"
-           autocomplete="email" inputmode="email">
-    <button class="boton" id="enviar">Enviar enlace</button>
+
+    <!-- Paso 1: correo y contraseña -->
+    <div id="paso-login" hidden>
+      <h1>Entra al panel</h1>
+      <p>Correo y contraseña. Después te pedimos el código de tu app de autenticación.</p>
+      <input class="campo" type="email" id="correo" placeholder="tu@correo.com"
+             autocomplete="username" inputmode="email">
+      <input class="campo" type="password" id="clave" placeholder="Contraseña"
+             autocomplete="current-password">
+      <button class="boton" id="entrar">Entrar</button>
+    </div>
+
+    <!-- Paso 2a: primera vez, registrar la app -->
+    <div id="paso-enrolar" hidden>
+      <h1>Activa la verificación en dos pasos</h1>
+      <p>Escanea este código con Google Authenticator, Authy o la app que uses. Solo se hace una vez.</p>
+      <div class="qr"><img id="qr" alt="Código QR para tu app de autenticación"></div>
+      <p class="secreto">¿No puedes escanear? Escribe esta clave en la app: <code id="secreto"></code></p>
+      <input class="campo codigo" id="codigo-enrolar" placeholder="000000"
+             inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+      <button class="boton" id="confirmar-enrolar">Confirmar</button>
+    </div>
+
+    <!-- Paso 2b: ya registrada, pedir código -->
+    <div id="paso-codigo" hidden>
+      <h1>Código de verificación</h1>
+      <p>Abre tu app de autenticación y escribe los 6 dígitos que aparecen ahora.</p>
+      <input class="campo codigo" id="codigo" placeholder="000000"
+             inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+      <button class="boton" id="verificar">Verificar</button>
+    </div>
+
     <p class="aviso" id="aviso" role="status"></p>
+    <button class="enlace" id="volver" hidden>Salir y volver a empezar</button>
   </div>
 </section>
 
@@ -220,8 +269,6 @@ const SUPABASE_ANON = "sb_publishable_rnTlbtk9slMW9Oq2bKrdhg_EtOYRKjU";
 
 /* ============================================================
    2. SECCIONES — aquí crece el panel.
-   Para sumar ventas mañana: pones activa:true y escribes
-   su función de render. La estructura no cambia.
    ============================================================ */
 const SECCIONES = [
   { id:"feedback",  nombre:"Feedback",   activa:true  },
@@ -238,66 +285,147 @@ const COLORES = { 1:"var(--e1)", 2:"var(--e2)", 3:"var(--e3)", 4:"var(--e4)", 5:
 let datos = [];
 let origenActivo = "todos";
 let diasActivos = 90;
+let factorId = null;
 
-/* ---------- Acceso ---------- */
-$("#enviar").addEventListener("click", entrar);
-$("#correo").addEventListener("keydown", e => { if (e.key === "Enter") entrar(); });
+/* ============================================================
+   3. ACCESO: contraseña + código TOTP
+   El panel solo abre con sesión de nivel aal2 (los dos factores).
+   Y la política RLS exige lo mismo, así que saltarse esta
+   pantalla no sirve para leer datos.
+   ============================================================ */
+const PASOS = ["paso-login", "paso-enrolar", "paso-codigo"];
+
+function mostrarPaso(id){
+  PASOS.forEach(p => { $("#" + p).hidden = (p !== id); });
+  $("#volver").hidden = (id === "paso-login");
+  $("#acceso").style.display = "grid";
+  $("#panel").classList.remove("activo");
+  const primero = $("#" + id + " input");
+  if (primero) setTimeout(() => primero.focus(), 50);
+}
+
+function avisar(texto, tipo){
+  const a = $("#aviso");
+  a.className = "aviso" + (tipo ? " " + tipo : "");
+  a.textContent = texto || "";
+}
+
+async function ocupado(boton, texto, fn){
+  const original = boton.textContent;
+  boton.disabled = true;
+  boton.textContent = texto;
+  try { await fn(); }
+  finally { boton.disabled = false; boton.textContent = original; }
+}
+
+/* Decide qué pantalla toca según el estado de la sesión */
+async function decidir(){
+  const { data: s } = await sb.auth.getSession();
+  if (!s.session) return mostrarPaso("paso-login");
+
+  const { data: nivel, error } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error) { avisar(traducirError(error.message), "mal"); return mostrarPaso("paso-login"); }
+
+  if (nivel.currentLevel === "aal2") return abrirPanel(s.session);
+  if (nivel.nextLevel === "aal2") return pedirCodigo();
+  return enrolar();
+}
+
+/* Paso 1 */
+$("#entrar").addEventListener("click", () => ocupado($("#entrar"), "Entrando…", entrar));
+$("#clave").addEventListener("keydown", e => { if (e.key === "Enter") $("#entrar").click(); });
 
 async function entrar(){
   const correo = $("#correo").value.trim();
-  const aviso = $("#aviso");
-  if (!correo || !correo.includes("@")) {
-    aviso.className = "aviso mal";
-    aviso.textContent = "Escribe un correo válido.";
+  const clave = $("#clave").value;
+  if (!correo.includes("@") || !clave) {
+    avisar("Escribe tu correo y tu contraseña.", "mal");
     return;
   }
-  $("#enviar").disabled = true;
-  $("#enviar").textContent = "Enviando…";
-  const { error } = await sb.auth.signInWithOtp({
-    email: correo,
-    options: { emailRedirectTo: window.location.origin + window.location.pathname }
+  const { error } = await sb.auth.signInWithPassword({ email: correo, password: clave });
+  if (error) { avisar(traducirError(error.message), "mal"); return; }
+  avisar("");
+  $("#clave").value = "";
+  await decidir();
+}
+
+/* Paso 2a: registrar la app la primera vez */
+async function enrolar(){
+  /* Si quedó un registro a medias de un intento anterior, se borra */
+  const { data: lista } = await sb.auth.mfa.listFactors();
+  for (const f of (lista?.all || [])) {
+    if (f.status === "unverified") await sb.auth.mfa.unenroll({ factorId: f.id });
+  }
+
+  const { data, error } = await sb.auth.mfa.enroll({
+    factorType: "totp",
+    friendlyName: "Panel Sustancia P " + new Date().toISOString().slice(0,10)
   });
-  $("#enviar").disabled = false;
-  $("#enviar").textContent = "Enviar enlace";
-  if (error) {
-    aviso.className = "aviso mal";
-    aviso.textContent = traducirError(error.message);
-    return;
-  }
-  aviso.className = "aviso ok";
-  aviso.textContent = "Listo. Revisa tu correo y abre el enlace.";
+  if (error) { avisar(traducirError(error.message), "mal"); return mostrarPaso("paso-login"); }
+
+  factorId = data.id;
+  $("#qr").src = data.totp.qr_code;
+  $("#secreto").textContent = data.totp.secret;
+  avisar("");
+  mostrarPaso("paso-enrolar");
 }
 
-/* Supabase responde en inglés; aquí se traducen los casos conocidos
-   y el resto cae en un mensaje genérico. */
-function traducirError(msg){
-  const m = String(msg).toLowerCase();
-  if (m.includes("signups not allowed"))
-    return "Ese correo no tiene acceso al panel.";
-  if (m.includes("rate limit") || m.includes("only request this after"))
-    return "Pediste varios enlaces seguidos. Espera un minuto y vuelve a intentar.";
-  if (m.includes("invalid format") || m.includes("validate email"))
-    return "Ese correo no tiene un formato válido.";
-  return "No se pudo enviar el enlace. Intenta de nuevo en un momento.";
+$("#confirmar-enrolar").addEventListener("click", () =>
+  ocupado($("#confirmar-enrolar"), "Verificando…", () => verificarCodigo("#codigo-enrolar")));
+$("#codigo-enrolar").addEventListener("keydown", e => { if (e.key === "Enter") $("#confirmar-enrolar").click(); });
+
+/* Paso 2b: pedir el código en cada ingreso */
+async function pedirCodigo(){
+  const { data, error } = await sb.auth.mfa.listFactors();
+  if (error || !data.totp.length) { return enrolar(); }
+  factorId = data.totp[0].id;
+  avisar("");
+  mostrarPaso("paso-codigo");
 }
 
-$("#salir").addEventListener("click", async () => {
+$("#verificar").addEventListener("click", () =>
+  ocupado($("#verificar"), "Verificando…", () => verificarCodigo("#codigo")));
+$("#codigo").addEventListener("keydown", e => { if (e.key === "Enter") $("#verificar").click(); });
+
+async function verificarCodigo(selector){
+  const code = $(selector).value.replace(/\D/g, "");
+  if (code.length !== 6) { avisar("El código tiene 6 dígitos.", "mal"); return; }
+  const { error } = await sb.auth.mfa.challengeAndVerify({ factorId, code });
+  $(selector).value = "";
+  if (error) { avisar(traducirError(error.message), "mal"); return; }
+  avisar("");
+  await decidir();
+}
+
+/* Salir */
+async function salir(){
   await sb.auth.signOut();
   location.reload();
-});
+}
+$("#salir").addEventListener("click", salir);
+$("#volver").addEventListener("click", salir);
 
-sb.auth.onAuthStateChange((_evento, sesion) => {
-  if (sesion) abrirPanel(sesion);
-});
+/* Supabase responde en inglés; aquí se traducen los casos conocidos */
+function traducirError(msg){
+  const m = String(msg).toLowerCase();
+  if (m.includes("invalid login credentials"))
+    return "Correo o contraseña incorrectos.";
+  if (m.includes("email not confirmed"))
+    return "Ese usuario no está confirmado todavía.";
+  if (m.includes("totp") || m.includes("invalid code") || m.includes("mfa"))
+    return "Código incorrecto o vencido. Usa el que aparece ahora en la app.";
+  if (m.includes("rate limit") || m.includes("too many"))
+    return "Demasiados intentos seguidos. Espera un minuto.";
+  return "No se pudo completar. Intenta de nuevo en un momento.";
+}
 
-(async () => {
-  const { data } = await sb.auth.getSession();
-  if (data.session) abrirPanel(data.session);
-})();
+decidir();
 
+/* ============================================================
+   4. PANEL
+   ============================================================ */
 function abrirPanel(sesion){
   if ($("#panel").classList.contains("activo")) return;
-  history.replaceState(null, "", window.location.pathname);
   $("#acceso").style.display = "none";
   $("#panel").classList.add("activo");
   $("#quien").textContent = sesion.user.email;
@@ -306,7 +434,6 @@ function abrirPanel(sesion){
   cargarFeedback();
 }
 
-/* ---------- Menú ---------- */
 function pintarMenu(){
   $("#menu").innerHTML = SECCIONES.map(s => s.activa
     ? `<a href="#" aria-current="page">${s.nombre}</a>`
@@ -315,7 +442,6 @@ function pintarMenu(){
   $("#menu").addEventListener("click", e => e.preventDefault());
 }
 
-/* ---------- Filtros ---------- */
 function pintarFiltros(){
   const origenes = [["todos","Todo"],["web","Sitio web"],["whatsapp","WhatsApp"]];
   $("#filtro-origen").innerHTML = origenes.map(([v,t]) =>
@@ -342,7 +468,6 @@ function refrescarBotones(){
     b.setAttribute("aria-pressed", Number(b.dataset.dias) === diasActivos));
 }
 
-/* ---------- Datos ---------- */
 async function cargarFeedback(){
   const { data, error } = await sb
     .from("feedback")
@@ -351,18 +476,19 @@ async function cargarFeedback(){
 
   if (error) {
     $("#comentarios").innerHTML =
-      `<p class="vacio">No se pudieron leer los datos: ${error.message}.
-       Revisa que exista la política de lectura para usuarios autenticados.</p>`;
+      `<p class="vacio">No se pudieron leer los datos. Revisa las políticas de lectura de la tabla.</p>`;
     return;
   }
   datos = data || [];
+  if (!datos.length) {
+    $("#comentarios").innerHTML =
+      `<p class="vacio">No llegó ninguna fila. Si sabes que hay datos, lo más probable es que la política exija 2FA y esta sesión no la tenga.</p>`;
+  }
   pintar();
 }
 
 function filtrados(){
-  const corte = diasActivos
-    ? Date.now() - diasActivos * 86400000
-    : 0;
+  const corte = diasActivos ? Date.now() - diasActivos * 86400000 : 0;
   return datos.filter(f => {
     if (origenActivo !== "todos" && f.origen !== origenActivo) return false;
     if (corte && new Date(f.fecha).getTime() < corte) return false;
@@ -370,12 +496,11 @@ function filtrados(){
   });
 }
 
-/* ---------- Render ---------- */
 function pintar(){
   const filas = filtrados();
   pintarReparto(filas);
   pintarResumen(filas);
-  pintarComentarios(filas);
+  if (datos.length) pintarComentarios(filas);
 }
 
 function pintarReparto(filas){
