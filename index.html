@@ -13,8 +13,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script>
-  /* Aplica el tema guardado antes de pintar, para que no destelle */
-  try { const t = localStorage.getItem("ch-tema"); if (t) document.documentElement.dataset.theme = t; } catch(e) {}
+/* Aplica el tema guardado antes de pintar, para que no destelle */
+try { const t = localStorage.getItem("ch-tema"); if (t) document.documentElement.dataset.theme = t; } catch(e) {}
 </script>
 <style>
 /* ============================================================
@@ -59,7 +59,7 @@ body{
   font-family:var(--sans); font-size:15px; line-height:1.5;
   -webkit-font-smoothing:antialiased;
 }
-button,input{font:inherit;color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
 .tabular{font-variant-numeric:tabular-nums}
 :focus-visible{outline:2px solid var(--brand);outline-offset:2px}
@@ -87,6 +87,9 @@ button{cursor:pointer}
 .campo::placeholder{color:var(--faint)}
 .campo:focus{outline:none;border-color:var(--brand-line);box-shadow:0 0 0 3px var(--brand-bg)}
 .campo.codigo{font-family:var(--mono);font-size:22px;letter-spacing:.35em;text-align:center}
+.campo.compacto{width:auto;margin-bottom:0;padding:6px 11px;font-size:13px;border-radius:999px}
+.campo.buscador{min-width:230px;flex:1}
+textarea.campo{min-height:84px;resize:vertical}
 .boton{
   width:100%; padding:11px 16px; border:none; border-radius:999px;
   background:var(--brand); color:var(--on-brand); font-weight:700;
@@ -197,8 +200,8 @@ button{cursor:pointer}
 main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
 .cabecera{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap}
 .cabecera p{margin:6px 0 0 18px;color:var(--muted);font-size:14px}
-.filtros{display:flex;gap:6px;flex-wrap:wrap}
-.filtros-fila{display:flex;gap:18px;flex-wrap:wrap;margin-top:22px}
+.filtros{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.filtros-fila{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:18px}
 .chip{
   padding:6px 13px;border-radius:999px;font-size:13px;
   background:var(--surface);border:1px solid var(--border);color:var(--muted);
@@ -206,7 +209,7 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
 .chip:hover{border-color:var(--border2)}
 .chip[aria-pressed="true"]{background:var(--brand-bg);border-color:var(--brand-line);color:var(--brand-ink);font-weight:500}
 
-.rejilla{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-top:22px}
+.rejilla{display:grid;grid-template-columns:1.35fr 1fr;gap:14px;margin-top:14px}
 .caja{
   background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
   padding:16px 16px 18px;
@@ -215,11 +218,13 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
 
 .reparto{display:flex;flex-direction:column;gap:9px}
 .fila{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px}
-.fila-etq{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap;min-width:34px}
+.fila-etq{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap;min-width:34px;max-width:130px;overflow:hidden;text-overflow:ellipsis}
 .barra{height:22px;background:var(--track);border-radius:var(--r-sm);overflow:hidden}
 .barra span{display:block;height:100%;border-radius:var(--r-sm);transition:width .4s ease}
 .fila-num{font-size:13px;color:var(--faint);white-space:nowrap;min-width:72px;text-align:right}
 .fila-num b{color:var(--ink);font-weight:700}
+.fila.pinchable{cursor:pointer;padding:2px 0}
+.fila.pinchable:hover .fila-etq{color:var(--brand-ink)}
 
 .datos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .dato{background:var(--surface2);border-radius:var(--r);padding:14px}
@@ -243,20 +248,99 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
 .comentario p{margin:0;font-size:14.5px;line-height:1.55;color:var(--ink)}
 .vacio{color:var(--faint);font-size:14px;padding:14px 2px 4px}
 
-/* ---------- Ventana de contraseña ---------- */
+/* ============================================================
+   COMPONENTES DE ANÁLISIS Y MEJORAS
+   ============================================================ */
+.mini{display:block;margin:4px 0 0;font-size:12.5px;color:var(--faint);line-height:1.45}
+.fila-entre{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin-top:18px}
+.tarjetas .dato{background:var(--surface);border:1px solid var(--border)}
+
+.boton-chico{
+  padding:5px 12px;border-radius:999px;border:1px solid var(--border2);
+  background:transparent;font-size:12.5px;color:var(--muted);
+}
+.boton-chico:hover{border-color:var(--brand-line);color:var(--brand-ink)}
+.boton-chico.activo{background:var(--brand-bg);border-color:var(--brand-line);color:var(--brand-ink)}
+
+.etq{
+  display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;
+  text-transform:uppercase;padding:2px 7px;border-radius:var(--r-sm);
+  background:var(--surface);border:1px solid var(--border);color:var(--muted);
+}
+.etq.lima{background:var(--brand-bg);border-color:var(--brand-line);color:var(--brand-ink)}
+.etq.alerta{background:var(--warn-bg);border-color:transparent;color:var(--warn)}
+.etq.ok{color:var(--ok)}
+.delta{font-family:var(--mono);font-size:11px}
+.delta.sube{color:var(--ok)}
+.delta.baja{color:var(--warn)}
+
+.barras{display:flex;align-items:flex-end;gap:5px;height:120px;margin-bottom:4px}
+.barras .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;height:100%}
+.barras .col i{display:block;width:100%;border-radius:3px 3px 0 0;opacity:.9}
+.barras .col b{font-size:10.5px;color:var(--muted);margin:0}
+.barras .col span{font-family:var(--mono);font-size:9px;color:var(--faint);white-space:nowrap}
+
+.tabla{width:100%;border-collapse:collapse;font-size:14px}
+.tabla th{
+  text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--faint);font-weight:500;
+  padding:7px 8px;border-bottom:1px solid var(--border);
+}
+.tabla td{padding:9px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+.tabla tr:last-child td{border-bottom:none}
+
+.comentario-pie{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:11px}
+
+.accion{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:15px 17px 16px;margin-top:11px;
+}
+.accion:hover{border-color:var(--border2)}
+.accion h3{margin:3px 0 5px;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.accion p{margin:0;font-size:14.5px;line-height:1.55}
+.accion .fila{margin-top:11px}
+.voces{color:var(--muted);font-style:italic}
+.tareas-accion{margin-top:11px;border-top:1px solid var(--border);padding-top:2px}
+
+.tarea{display:flex;align-items:flex-start;gap:11px;padding:10px 0;border-top:1px solid var(--border)}
+.tarea:first-child{border-top:none}
+.tarea-txt{flex:1;min-width:0}
+.tarea-txt b{font-weight:600;font-size:14.5px}
+.tarea.hecha .tarea-txt b{text-decoration:line-through;color:var(--faint)}
+.tick{
+  width:21px;height:21px;border-radius:6px;flex:none;margin-top:2px;
+  border:1px solid var(--border2);background:transparent;
+  display:grid;place-items:center;font-size:12px;line-height:1;
+}
+.tick:hover{border-color:var(--brand-line)}
+.tick[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+
+/* ---------- Ventanas ---------- */
 .velo{
   position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:20px;
-  background:rgba(0,0,0,.55);
+  background:rgba(0,0,0,.55);overflow:auto;
 }
 .ventana{
   width:100%;max-width:400px;background:var(--surface);
   border:1px solid var(--border2);border-radius:var(--r);padding:24px;box-shadow:var(--sombra);
 }
+.ventana.ancha{max-width:600px}
 .ventana .mast h1{font-size:20px}
 .ventana p.guia{margin:12px 0 18px;color:var(--muted);font-size:14px}
+.ventana .etiqueta{display:block;margin:2px 0 6px}
 .ventana-botones{display:flex;gap:8px;margin-top:6px}
 .ventana-botones .boton{flex:1}
-
+.campos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.opciones{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.opcion{
+  display:flex;gap:9px;align-items:flex-start;
+  background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);
+  padding:10px 12px;font-size:13.5px;cursor:pointer;
+}
+.opcion:hover{border-color:var(--border2)}
+.opcion input{margin-top:3px;accent-color:var(--brand)}
+.opcion .mini{margin:2px 0 0}
 
 /* ---------- Chiste de la entrada: foto → trabajo + tiempo → plata ----------
    El estado final es el estilo base; las animaciones solo cuentan cómo se llega.
@@ -303,6 +387,8 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
   .usuario-boton{padding:4px}
   .marca-sub{display:none}
   .mast h1{font-size:23px}
+  .campos,.opciones{grid-template-columns:1fr}
+  .campo.buscador{min-width:0}
 }
 </style>
 </head>
@@ -414,35 +500,8 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
     <nav class="pestanas" id="pestanas" role="tablist" aria-label="Secciones del panel"></nav>
   </header>
 
-  <main>
-    <div class="cabecera">
-      <div>
-        <div class="mast"><span class="etiqueta">Calidad del contenido</span><h1>Feedback</h1></div>
-        <p>Lo que dicen los médicos de las guías, por web y por WhatsApp.</p>
-      </div>
-    </div>
-
-    <div class="filtros-fila">
-      <div class="filtros" id="filtro-origen" role="group" aria-label="Filtrar por canal"></div>
-      <div class="filtros" id="filtro-rango" role="group" aria-label="Filtrar por periodo"></div>
-    </div>
-
-    <div class="rejilla">
-      <section class="caja">
-        <span class="etiqueta">Cómo se reparten las calificaciones</span>
-        <div class="reparto" id="reparto"></div>
-      </section>
-      <section class="caja">
-        <span class="etiqueta">Resumen del periodo</span>
-        <div class="datos" id="resumen"></div>
-      </section>
-    </div>
-
-    <section class="caja comentarios">
-      <span class="etiqueta">Comentarios · primero los más críticos</span>
-      <div id="comentarios"><p class="vacio">Cargando…</p></div>
-    </section>
-  </main>
+  <!-- Cada pestaña se pinta aquí desde su módulo -->
+  <main id="vista"><p class="vacio">Cargando…</p></main>
 </div>
 
 <!-- Ventana: cambiar contraseña -->
@@ -460,366 +519,10 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
   </div>
 </div>
 
+<!-- Ventana genérica de formularios: etiquetas, mejoras y tareas -->
+<div class="velo" id="velo-forma" hidden></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-/* ============================================================
-   1. CONFIGURACIÓN
-   La publishable key es pública por diseño. La sb_secret_... NUNCA va aquí.
-   ============================================================ */
-const SUPABASE_URL  = "https://pjpidtavlmqhogikizkm.supabase.co";
-const SUPABASE_ANON = "sb_publishable_rnTlbtk9slMW9Oq2bKrdhg_EtOYRKjU";
-
-/* ============================================================
-   2. SECCIONES — aquí crece el panel
-   ============================================================ */
-const SECCIONES = [
-  { id:"feedback",  nombre:"Feedback",       activa:true  },
-  { id:"ventas",    nombre:"Ventas",         activa:false },
-  { id:"contenido", nombre:"Contenido",      activa:false },
-  { id:"admin",     nombre:"Administrativo", activa:false }
-];
-
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-const $ = s => document.querySelector(s);
-const COLORES = { 1:"var(--s1)", 2:"var(--s2)", 3:"var(--s3)", 4:"var(--s4)", 5:"var(--s5)" };
-
-let datos = [];
-let origenActivo = "todos";
-let diasActivos = 90;
-let factorId = null;
-
-/* ============================================================
-   3. ACCESO: contraseña + código TOTP (nivel aal2)
-   ============================================================ */
-const PASOS = ["paso-login","paso-enrolar","paso-codigo"];
-
-function mostrarPaso(id){
-  PASOS.forEach(p => { $("#"+p).hidden = (p !== id); });
-  $("#volver").hidden = (id === "paso-login");
-  $("#acceso").hidden = false;
-  $("#panel").hidden = true;
-  const primero = $("#"+id+" input");
-  if (primero) setTimeout(() => primero.focus(), 50);
-}
-
-function avisar(texto, tipo, donde = "#aviso"){
-  const a = $(donde);
-  a.className = "aviso" + (tipo ? " " + tipo : "");
-  a.textContent = texto || "";
-}
-
-async function ocupado(boton, texto, fn){
-  const original = boton.textContent;
-  boton.disabled = true; boton.textContent = texto;
-  try { await fn(); } finally { boton.disabled = false; boton.textContent = original; }
-}
-
-async function decidir(){
-  const { data: s } = await sb.auth.getSession();
-  if (!s.session) return mostrarPaso("paso-login");
-  const { data: nivel, error } = await sb.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (error) { avisar(traducirError(error.message), "mal"); return mostrarPaso("paso-login"); }
-  if (nivel.currentLevel === "aal2") return abrirPanel(s.session);
-  if (nivel.nextLevel === "aal2") return pedirCodigo();
-  return enrolar();
-}
-
-$("#entrar").addEventListener("click", () => ocupado($("#entrar"), "Entrando…", entrar));
-$("#clave").addEventListener("keydown", e => { if (e.key === "Enter") $("#entrar").click(); });
-
-async function entrar(){
-  const correo = $("#correo").value.trim();
-  const clave = $("#clave").value;
-  if (!correo.includes("@") || !clave) { avisar("Escribe tu correo y tu contraseña.", "mal"); return; }
-  const { error } = await sb.auth.signInWithPassword({ email: correo, password: clave });
-  if (error) { avisar(traducirError(error.message), "mal"); return; }
-  avisar(""); $("#clave").value = "";
-  await decidir();
-
-/* Repetir el chiste al hacer clic */
-$("#chiste").addEventListener("click", () => {
-  const s = $("#chiste .chiste");
-  s.classList.remove("play"); void s.getBoundingClientRect(); s.classList.add("play");
-});
-}
-
-async function enrolar(){
-  const { data: lista } = await sb.auth.mfa.listFactors();
-  for (const f of (lista?.all || [])) {
-    if (f.status === "unverified") await sb.auth.mfa.unenroll({ factorId: f.id });
-  }
-  const { data, error } = await sb.auth.mfa.enroll({
-    factorType: "totp",
-    friendlyName: "Clinical Hub panel " + new Date().toISOString().slice(0,10)
-  });
-  if (error) { avisar(traducirError(error.message), "mal"); return mostrarPaso("paso-login"); }
-  factorId = data.id;
-  $("#qr").src = data.totp.qr_code;
-  $("#secreto").textContent = data.totp.secret;
-  avisar("");
-  mostrarPaso("paso-enrolar");
-}
-
-$("#confirmar-enrolar").addEventListener("click", () =>
-  ocupado($("#confirmar-enrolar"), "Verificando…", () => verificarCodigo("#codigo-enrolar")));
-$("#codigo-enrolar").addEventListener("keydown", e => { if (e.key === "Enter") $("#confirmar-enrolar").click(); });
-
-async function pedirCodigo(){
-  const { data, error } = await sb.auth.mfa.listFactors();
-  if (error || !data.totp.length) return enrolar();
-  factorId = data.totp[0].id;
-  avisar("");
-  mostrarPaso("paso-codigo");
-}
-
-$("#verificar").addEventListener("click", () =>
-  ocupado($("#verificar"), "Verificando…", () => verificarCodigo("#codigo")));
-$("#codigo").addEventListener("keydown", e => { if (e.key === "Enter") $("#verificar").click(); });
-
-async function verificarCodigo(selector){
-  const code = $(selector).value.replace(/\D/g, "");
-  if (code.length !== 6) { avisar("El código tiene 6 dígitos.", "mal"); return; }
-  const { error } = await sb.auth.mfa.challengeAndVerify({ factorId, code });
-  $(selector).value = "";
-  if (error) { avisar(traducirError(error.message), "mal"); return; }
-  avisar("");
-  await decidir();
-}
-
-async function salir(){ await sb.auth.signOut(); location.reload(); }
-$("#salir").addEventListener("click", salir);
-$("#volver").addEventListener("click", salir);
-
-function traducirError(msg){
-  const m = String(msg).toLowerCase();
-  if (m.includes("invalid login credentials")) return "Correo o contraseña incorrectos.";
-  if (m.includes("email not confirmed")) return "Ese usuario no está confirmado todavía.";
-  if (m.includes("different from the old")) return "La nueva contraseña debe ser distinta de la actual.";
-  if (m.includes("password should be") || m.includes("weak")) return "Esa contraseña es muy corta o muy débil.";
-  if (m.includes("reauthentication") || m.includes("reauthenticate"))
-    return "Por seguridad, cierra sesión, vuelve a entrar y cambia la contraseña enseguida.";
-  if (m.includes("aal2")) return "Necesitas verificar tu código de la app antes de hacer esto.";
-  if (m.includes("totp") || m.includes("invalid code") || m.includes("mfa"))
-    return "Código incorrecto o vencido. Usa el que aparece ahora en la app.";
-  if (m.includes("rate limit") || m.includes("too many")) return "Demasiados intentos seguidos. Espera un minuto.";
-  return "No se pudo completar. Intenta de nuevo en un momento.";
-}
-
-decidir();
-
-/* ============================================================
-   4. BARRA SUPERIOR: pestañas, menú de usuario, tema
-   ============================================================ */
-function abrirPanel(sesion){
-  if (!$("#panel").hidden) return;
-  $("#acceso").hidden = true;
-  $("#panel").hidden = false;
-
-  const correo = sesion.user.email || "";
-  $("#usuario-correo").textContent = correo;
-  $("#menu-correo").textContent = correo;
-  $("#avatar").textContent = iniciales(correo);
-  pintarTemaActual();
-
-  pintarPestanas();
-  pintarFiltros();
-  cargarFeedback();
-}
-
-function iniciales(correo){
-  const nombre = correo.split("@")[0].replace(/[^a-zA-Z]/g, " ").trim().split(/\s+/);
-  const a = (nombre[0] || "?")[0] || "?";
-  const b = nombre[1] ? nombre[1][0] : (nombre[0] || "")[1] || "";
-  return (a + b).toUpperCase();
-}
-
-function pintarPestanas(){
-  $("#pestanas").innerHTML = SECCIONES.map(s => s.activa
-    ? `<button class="pestana" role="tab" aria-selected="true">${s.nombre}</button>`
-    : `<button class="pestana" role="tab" aria-selected="false" aria-disabled="true" tabindex="-1"
-         title="Todavía no conectado">${s.nombre}<span class="pronto">pronto</span></button>`
-  ).join("");
-}
-
-/* Menú desplegable */
-const botonUsuario = $("#usuario-boton");
-const menu = $("#menu-usuario");
-function abrirMenu(abrir){
-  menu.hidden = !abrir;
-  botonUsuario.setAttribute("aria-expanded", String(abrir));
-}
-botonUsuario.addEventListener("click", e => { e.stopPropagation(); abrirMenu(menu.hidden); });
-document.addEventListener("click", e => { if (!menu.hidden && !menu.contains(e.target)) abrirMenu(false); });
-document.addEventListener("keydown", e => {
-  if (e.key !== "Escape") return;
-  if (!$("#velo-clave").hidden) cerrarVentanaClave();
-  else if (!menu.hidden) { abrirMenu(false); botonUsuario.focus(); }
-});
-
-/* Tema claro / oscuro */
-function pintarTemaActual(){
-  $("#tema-actual").textContent = document.documentElement.dataset.theme === "light" ? "Claro" : "Oscuro";
-}
-$("#cambiar-tema").addEventListener("click", () => {
-  const nuevo = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-  document.documentElement.dataset.theme = nuevo;
-  try { localStorage.setItem("ch-tema", nuevo); } catch(e) {}
-  pintarTemaActual();
-});
-
-/* Cambiar contraseña */
-$("#abrir-clave").addEventListener("click", () => {
-  abrirMenu(false);
-  avisar("", "", "#aviso-clave");
-  $("#clave-nueva").value = ""; $("#clave-repetir").value = "";
-  $("#velo-clave").hidden = false;
-  setTimeout(() => $("#clave-nueva").focus(), 50);
-});
-function cerrarVentanaClave(){ $("#velo-clave").hidden = true; botonUsuario.focus(); }
-$("#cancelar-clave").addEventListener("click", cerrarVentanaClave);
-$("#velo-clave").addEventListener("click", e => { if (e.target.id === "velo-clave") cerrarVentanaClave(); });
-$("#clave-repetir").addEventListener("keydown", e => { if (e.key === "Enter") $("#guardar-clave").click(); });
-
-$("#guardar-clave").addEventListener("click", () => ocupado($("#guardar-clave"), "Guardando…", async () => {
-  const nueva = $("#clave-nueva").value;
-  const repetir = $("#clave-repetir").value;
-  if (nueva.length < 8) { avisar("Usa al menos 8 caracteres.", "mal", "#aviso-clave"); return; }
-  if (nueva !== repetir) { avisar("Las dos contraseñas no coinciden.", "mal", "#aviso-clave"); return; }
-  const { error } = await sb.auth.updateUser({ password: nueva });
-  if (error) { avisar(traducirError(error.message), "mal", "#aviso-clave"); return; }
-  avisar("Contraseña actualizada. La próxima vez entras con la nueva.", "ok", "#aviso-clave");
-  $("#clave-nueva").value = ""; $("#clave-repetir").value = "";
-  setTimeout(cerrarVentanaClave, 1800);
-}));
-
-/* ============================================================
-   5. FEEDBACK
-   ============================================================ */
-function pintarFiltros(){
-  const origenes = [["todos","Todo"],["web","Sitio web"],["whatsapp","WhatsApp"]];
-  $("#filtro-origen").innerHTML = origenes.map(([v,t]) =>
-    `<button class="chip" data-origen="${v}" aria-pressed="${v===origenActivo}">${t}</button>`).join("");
-  const rangos = [[30,"30 días"],[90,"90 días"],[0,"Todo el histórico"]];
-  $("#filtro-rango").innerHTML = rangos.map(([v,t]) =>
-    `<button class="chip" data-dias="${v}" aria-pressed="${v===diasActivos}">${t}</button>`).join("");
-
-  $("#filtro-origen").addEventListener("click", e => {
-    const b = e.target.closest("button"); if (!b) return;
-    origenActivo = b.dataset.origen; refrescarChips(); pintar();
-  });
-  $("#filtro-rango").addEventListener("click", e => {
-    const b = e.target.closest("button"); if (!b) return;
-    diasActivos = Number(b.dataset.dias); refrescarChips(); pintar();
-  });
-}
-
-function refrescarChips(){
-  document.querySelectorAll("#filtro-origen .chip").forEach(b =>
-    b.setAttribute("aria-pressed", b.dataset.origen === origenActivo));
-  document.querySelectorAll("#filtro-rango .chip").forEach(b =>
-    b.setAttribute("aria-pressed", Number(b.dataset.dias) === diasActivos));
-}
-
-/* Todo lo que no sea WhatsApp cuenta como sitio web,
-   incluidas las filas viejas con origen vacío. */
-function canal(f){
-  const o = String(f.origen || "").toLowerCase();
-  return (o.includes("whats") || o === "wa") ? "whatsapp" : "web";
-}
-
-async function cargarFeedback(){
-  const { data, error } = await sb
-    .from("feedback")
-    .select("id,fecha,estrellas,mejora,origen,guia_de_referencia,tema_puntual,pais")
-    .order("fecha", { ascending: false });
-  if (error) {
-    $("#comentarios").innerHTML = `<p class="vacio">No se pudieron leer los datos. Revisa las políticas de lectura de la tabla.</p>`;
-    return;
-  }
-  datos = data || [];
-  pintar();
-}
-
-function filtrados(){
-  const corte = diasActivos ? Date.now() - diasActivos * 86400000 : 0;
-  return datos.filter(f => {
-    if (origenActivo !== "todos" && canal(f) !== origenActivo) return false;
-    if (corte && new Date(f.fecha).getTime() < corte) return false;
-    return true;
-  });
-}
-
-function pintar(){
-  const filas = filtrados();
-  pintarReparto(filas);
-  pintarResumen(filas);
-  pintarComentarios(filas);
-}
-
-function pintarReparto(filas){
-  const conNota = filas.filter(f => f.estrellas >= 1 && f.estrellas <= 5);
-  const cuenta = {1:0,2:0,3:0,4:0,5:0};
-  conNota.forEach(f => cuenta[f.estrellas]++);
-  const tope = Math.max(1, ...Object.values(cuenta));
-  $("#reparto").innerHTML = [5,4,3,2,1].map(n => {
-    const c = cuenta[n];
-    const pct = conNota.length ? Math.round(c / conNota.length * 100) : 0;
-    return `<div class="fila">
-      <span class="fila-etq">${n} ★</span>
-      <span class="barra"><span style="width:${c / tope * 100}%;background:${COLORES[n]}"></span></span>
-      <span class="fila-num tabular"><b>${c}</b> · ${pct}%</span>
-    </div>`;
-  }).join("");
-}
-
-function pintarResumen(filas){
-  const conNota = filas.filter(f => f.estrellas >= 1 && f.estrellas <= 5);
-  const prom = conNota.length
-    ? (conNota.reduce((a,f) => a + f.estrellas, 0) / conNota.length).toFixed(2) : "—";
-  const criticos = conNota.filter(f => f.estrellas <= 2).length;
-  const pct = conNota.length ? Math.round(criticos / conNota.length * 100) : 0;
-  const conTexto = filas.filter(f => f.mejora && f.mejora.trim()).length;
-  $("#resumen").innerHTML = `
-    <div class="dato"><div class="cifra lima tabular">${prom}</div><span class="etiqueta">Promedio</span></div>
-    <div class="dato"><div class="cifra tabular">${conNota.length}</div><span class="etiqueta">Calificaciones</span></div>
-    <div class="dato"><div class="cifra tabular">${criticos}</div><span class="etiqueta">1–2 ★ · ${pct}%</span></div>
-    <div class="dato"><div class="cifra tabular">${conTexto}</div><span class="etiqueta">Con comentario</span></div>`;
-}
-
-function pintarComentarios(filas){
-  const conTexto = filas
-    .filter(f => f.mejora && f.mejora.trim())
-    .sort((a,b) => (a.estrellas ?? 9) - (b.estrellas ?? 9));
-  if (!conTexto.length) {
-    $("#comentarios").innerHTML = datos.length
-      ? `<p class="vacio">Nadie dejó comentario en este periodo. Prueba con “Todo el histórico”.</p>`
-      : `<p class="vacio">Todavía no hay feedback registrado.</p>`;
-    return;
-  }
-  $("#comentarios").innerHTML = conTexto.map(f => {
-    const n = f.estrellas;
-    const guia = f.guia_de_referencia || f.tema_puntual;
-    return `<article class="comentario" style="border-left-color:${COLORES[n] || "var(--border2)"}">
-      <div class="comentario-meta">
-        <span class="nota">${n ? n + " ★" : "sin nota"}</span>
-        <span class="canal">${canal(f) === "whatsapp" ? "WhatsApp" : "Web"}</span>
-        <span class="fecha">${fecha(f.fecha)}${guia ? " · " + escapar(guia) : ""}</span>
-      </div>
-      <p>${escapar(f.mejora)}</p>
-    </article>`;
-  }).join("");
-}
-
-function fecha(iso){
-  if (!iso) return "";
-  return new Date(iso).toLocaleDateString("es-CO",
-    { timeZone:"America/Bogota", day:"numeric", month:"short", year:"numeric" });
-}
-
-function escapar(t){
-  return String(t).replace(/[&<>"']/g, c =>
-    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
-}
-</script>
+<script type="module" src="js/panel.js"></script>
 </body>
 </html>
