@@ -303,7 +303,9 @@ function pintarTendencia(lista){
       s += '<g class="punto' + (fiesta ? ' festeja' : '') + '">';
       if (fiesta) s += '<circle class="aura" cx="' + x + '" cy="' + py(p.prom) + '" r="9" fill="' + c + '"></circle>';
       s += '<circle class="bolita" cx="' + x + '" cy="' + py(p.prom) + '" r="5.5" fill="' + c + '"></circle>';
-      s += '<text class="valor" x="' + x + '" y="' + (py(p.prom) - 12) + '" text-anchor="middle" fill="' + c + '">' + p.prom.toFixed(1) + '</text>';
+      const anc = p.i === 0 ? "start" : (p.i === puntos.length - 1 ? "end" : "middle");
+      const ax = p.i === 0 ? x - 4 : (p.i === puntos.length - 1 ? x + 4 : x);
+      s += '<text class="valor" x="' + ax + '" y="' + (py(p.prom) - 12) + '" text-anchor="' + anc + '" fill="' + c + '">' + p.prom.toFixed(1) + '</text>';
       s += '<title>' + etqMes(p.mes) + ': ' + p.prom.toFixed(2) + ' con ' + p.con + ' calificaciones de ' + p.n + ' respuestas</title></g>';
     }
     s += '<text class="eje" x="' + x + '" y="' + (H - 12) + '" text-anchor="middle">' + etqMes(p.mes) + '</text>';
@@ -361,7 +363,8 @@ function pintarDuele(lista){
 
   const todos = Array.from(mapa.values()).sort((a, b) => (b.n - a.n) || (b.criticos - a.criticos));
   todos.forEach(o => {
-    o.nombre = Array.from(o.nombres.entries()).sort((a, b) => b[1] - a[1])[0][0];
+    o.nombre = Array.from(o.nombres.entries())
+      .sort((a, b) => (b[1] - a[1]) || (puntajeNombre(b[0]) - puntajeNombre(a[0])) || (b[0].length - a[0].length))[0][0];
     o.plataforma = esPlataforma(o.clave);
   });
   const clinicos = todos.filter(o => !o.plataforma).slice(0, 10);
@@ -594,6 +597,13 @@ function colorNota(v){
   if (v < 3.5) return "#d64545";
   if (v < 4.5) return "#2f6fed";
   return "#18a058";
+}
+
+function puntajeNombre(s){
+  let p = 0;
+  if (/^[A-ZÁÉÍÓÚÑ]/.test(s)) p += 2;
+  if (/[áéíóúñÁÉÍÓÚÑ]/.test(s)) p += 1;
+  return p;
 }
 
 function etqMes(m){
