@@ -7,10 +7,10 @@ import { sb, $, estado, COLORES, escapar, fecha, num, dec, pct, avisar,
          abrirVentana, leer, opcionesEquipo, opciones, nombreEtiqueta } from "./nucleo.js";
 
 let filas = [];
-const f = { canal:"todos", dias:90, foco:"todos", etiqueta:"", texto:"", notas:[] };
+const f = { canal:"todos", dias:90, foco:"todos", etiqueta:"", texto:"", notas:[], tema:"" };
 
 const CANALES = [["todos","Todo"], ["web","Sitio web"], ["whatsapp","WhatsApp"]];
-const RANGOS  = [["30","30 días"], ["90","90 días"], ["365","12 meses"], ["0","Todo el histórico"]];
+const RANGOS  = [["7","1 semana"], ["30","1 mes"], ["90","90 días"], ["365","12 meses"], ["0","Histórico"]];
 const FOCOS   = [["todos","Todas"], ["texto","Con comentario"], ["criticos","Críticos 1–2"],
                  ["sin_revisar","Sin revisar"], ["sin_accion","Sin mejora"]];
 
@@ -20,6 +20,7 @@ const NOTAS = [["","Todas"], ["5","5 ★"], ["4","4 ★"], ["3","3 ★"], ["2","
    1. Armazón de la pestaña
    ============================================================ */
 export async function render(){
+  estilos();
   $("#vista").innerHTML = armazon();
   conectar();
   await cargar();
@@ -36,17 +37,23 @@ function armazon(){
   </div>
 
   <div class="filtros-fila">
-    <div class="filtros" id="f-canal" role="group" aria-label="Canal"></div>
-    <div class="filtros" id="f-rango" role="group" aria-label="Periodo"></div>
-  </div>
-  <div class="filtros-fila">
-    <div class="filtros" id="f-foco" role="group" aria-label="Foco"></div>
-    <select class="campo compacto" id="f-etiqueta" aria-label="Etiqueta"></select>
-    <input class="campo compacto buscador" id="f-texto" type="search" placeholder="Buscar en los comentarios…">
-    </div>
-    <div class="filtros-fila">
-      <div class="filtros" id="f-notas" role="group" aria-label="Calificacion"></div>
-  </div>
+        <span class="rotulo">Fuente</span>
+        <div class="filtros" id="f-canal" role="group" aria-label="Fuente"></div>
+      </div>
+      <div class="filtros-fila">
+        <span class="rotulo">Periodo</span>
+        <div class="filtros" id="f-rango" role="group" aria-label="Periodo"></div>
+      </div>
+      <div class="filtros-fila">
+        <span class="rotulo">Reseñas</span>
+        <div class="filtros" id="f-notas" role="group" aria-label="Reseñas"></div>
+      </div>
+      <div class="filtros-fila">
+        <span class="rotulo">Filtros</span>
+        <div class="filtros" id="f-foco" role="group" aria-label="Foco"></div>
+        <select class="campo compacto" id="f-etiqueta" aria-label="Etiqueta"></select>
+        <input class="campo compacto buscador" id="f-texto" type="search" placeholder="Buscar en los comentarios…">
+      </div>
 
   <p class="aviso" id="aviso-panel" role="status"></p>
 
@@ -69,7 +76,7 @@ function armazon(){
       <div id="etiquetas-top"></div>
     </section>
     <section class="caja">
-      <span class="etiqueta">Dónde más duele</span>
+      <span class="etiqueta">Lo que están pidiendo</span>
       <div id="duele"></div>
     </section>
   </div>
@@ -101,6 +108,12 @@ function conectar(){
   $("#reparto").addEventListener("click", e => { const b = e.target.closest("[data-n]"); if (b) alternarNota(b.dataset.n); });
   $("#btn-recargar").addEventListener("click", () => cargar());
   $("#comentarios").addEventListener("click", alClic);
+  $("#duele").addEventListener("click", e => {
+    const fila = e.target.closest("[data-tema]");
+    if (!fila) return;
+    f.tema = (f.tema === fila.dataset.tema) ? "" : fila.dataset.tema;
+    pintar();
+  });
   $("#etiquetas-top").addEventListener("click", e => {
     const b = e.target.closest("[data-etiqueta]");
     if (!b) return;
@@ -164,7 +177,8 @@ function base(atras){
 
 function filtradas(omitir){
   return base(0).filter(x => {
-    if (!omitir && f.notas.length){ const k = x.estrellas == null ? "0" : String(x.estrellas); if (f.notas.indexOf(k) === -1) return false; }
+    if (omitir !== "notas" && f.notas.length){ const k = x.estrellas == null ? "0" : String(x.estrellas); if (f.notas.indexOf(k) === -1) return false; }
+    if (omitir !== "tema" && f.tema && normalizar(x.guia_de_referencia || x.tema_puntual || "") !== f.tema) return false;
     if (f.etiqueta && (x.etiquetas || []).indexOf(f.etiqueta) === -1) return false;
     if (f.foco === "texto" && !x.texto) return false;
     if (f.foco === "criticos" && !(x.estrellas != null && x.estrellas <= 2)) return false;
@@ -187,12 +201,12 @@ const promedio = lista => conNota(lista).length
    ============================================================ */
 function pintar(){
   const lista = filtradas();
-  pintarNotas(filtradas(true));
+  pintarNotas(filtradas("notas"));
   pintarKpis(lista);
   pintarReparto(lista);
   pintarTendencia(lista);
   pintarEtiquetas(lista);
-  pintarDuele(lista);
+  pintarDuele(filtradas("tema"));
   pintarComentarios(lista);
 }
 
@@ -256,18 +270,54 @@ function porMes(lista){
 function pintarTendencia(lista){
   const meses = porMes(lista);
   if (!meses.length){ $("#tendencia").innerHTML = '<p class="vacio">Sin datos en este periodo.</p>'; return; }
-  const cuerpo = meses.map(m => {
-    const prom = m.con ? m.suma / m.con : 0;
-    const alto = m.con ? Math.max(6, prom / 5 * 100) : 3;
-    const color = prom >= 4 ? "var(--s5)" : prom >= 3 ? "var(--s3)" : "var(--s1)";
-    const etq = m.mes.slice(5) + "/" + m.mes.slice(2, 4);
-    return '<div class="col" title="' + etq + ": " + (m.con ? prom.toFixed(2) : "sin notas") + " · " + m.n + ' respuestas">' +
-      '<b class="mini">' + (m.con ? prom.toFixed(1) : "—") + '</b>' +
-      '<i style="height:' + alto + '%;background:' + color + '"></i>' +
-      '<span>' + etq + '</span></div>';
-  }).join("");
-  $("#tendencia").innerHTML = '<div class="barras">' + cuerpo + '</div>' +
-    '<p class="mini">Promedio de estrellas por mes. Debajo, el mes y el año.</p>';
+
+  const puntos = meses.map((m, i) => ({ i: i, mes: m.mes, n: m.n, con: m.con, prom: m.con ? m.suma / m.con : null }));
+  const conValor = puntos.filter(p => p.prom != null);
+  const W = Math.max(320, puntos.length * 74);
+  const H = 190, ix = 34, dx = 18, ay = 26, ab = 34;
+  const ancho = W - ix - dx, alto = H - ay - ab;
+  const px = i => puntos.length === 1 ? ix + ancho / 2 : ix + (i / (puntos.length - 1)) * ancho;
+  const py = v => ay + (5 - v) / 4 * alto;
+
+  let s = '<svg class="lineas" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Promedio de estrellas por mes">';
+  s += '<rect class="banda verde" x="' + ix + '" y="' + py(5) + '" width="' + ancho + '" height="' + (py(4.5) - py(5)) + '"></rect>';
+  s += '<rect class="banda azul" x="' + ix + '" y="' + py(4.5) + '" width="' + ancho + '" height="' + (py(3.5) - py(4.5)) + '"></rect>';
+  s += '<rect class="banda roja" x="' + ix + '" y="' + py(3.5) + '" width="' + ancho + '" height="' + (py(1) - py(3.5)) + '"></rect>';
+  [5, 4, 3, 2, 1].forEach(v => {
+    s += '<line class="guia" x1="' + ix + '" y1="' + py(v) + '" x2="' + (W - dx) + '" y2="' + py(v) + '"></line>';
+    s += '<text class="eje" x="' + (ix - 8) + '" y="' + (py(v) + 4) + '" text-anchor="end">' + v + '</text>';
+  });
+  for (let i = 1; i < puntos.length; i++){
+    const a = puntos[i - 1], b = puntos[i];
+    if (a.prom == null || b.prom == null) continue;
+    s += '<line class="tramo" x1="' + px(a.i) + '" y1="' + py(a.prom) + '" x2="' + px(b.i) + '" y2="' + py(b.prom) + '" stroke="' + colorNota(b.prom) + '"></line>';
+  }
+  puntos.forEach(p => {
+    const x = px(p.i);
+    if (p.prom == null){
+      s += '<g class="punto"><circle class="punto-vacio" cx="' + x + '" cy="' + py(1) + '" r="3"></circle>' +
+        '<title>' + etqMes(p.mes) + ': sin calificaciones, ' + p.n + ' respuestas</title></g>';
+    } else {
+      const c = colorNota(p.prom);
+      const fiesta = p.prom >= 4.5;
+      s += '<g class="punto' + (fiesta ? ' festeja' : '') + '">';
+      if (fiesta) s += '<circle class="aura" cx="' + x + '" cy="' + py(p.prom) + '" r="9" fill="' + c + '"></circle>';
+      s += '<circle class="bolita" cx="' + x + '" cy="' + py(p.prom) + '" r="5.5" fill="' + c + '"></circle>';
+      s += '<text class="valor" x="' + x + '" y="' + (py(p.prom) - 12) + '" text-anchor="middle" fill="' + c + '">' + p.prom.toFixed(1) + '</text>';
+      s += '<title>' + etqMes(p.mes) + ': ' + p.prom.toFixed(2) + ' con ' + p.con + ' calificaciones de ' + p.n + ' respuestas</title></g>';
+    }
+    s += '<text class="eje" x="' + x + '" y="' + (H - 12) + '" text-anchor="middle">' + etqMes(p.mes) + '</text>';
+  });
+  s += '</svg>';
+
+  const ultimo = conValor.length ? conValor[conValor.length - 1] : null;
+  let fiesta = '';
+  if (ultimo && ultimo.prom >= 4.5){
+    fiesta = '<div class="festejo"><span class="chispas"><i></i><i></i><i></i><i></i><i></i><i></i></span>' +
+      '<b>Mes en verde: ' + etqMes(ultimo.mes) + ' cerró en ' + ultimo.prom.toFixed(2) + '</b></div>';
+  }
+  $("#tendencia").innerHTML = s + fiesta +
+    '<p class="mini">Promedio de estrellas por mes. Rojo por debajo de 3.5, azul entre 3.5 y 4.5, verde de 4.5 en adelante.</p>';
 }
 
 function pintarEtiquetas(lista){
@@ -296,22 +346,47 @@ function pintarEtiquetas(lista){
 
 function pintarDuele(lista){
   const mapa = new Map();
-  lista.filter(x => x.texto).forEach(x => {
-    const k = (x.guia_de_referencia || x.tema_puntual || "Sin guía").trim().slice(0, 60);
-    const o = mapa.get(k) || { k:k, n:0, criticos:0, suma:0, con:0, sinAccion:0 };
+  lista.forEach(x => {
+    const crudo = (x.guia_de_referencia || x.tema_puntual || "").trim();
+    if (!crudo) return;
+    const clave = normalizar(crudo);
+    const o = mapa.get(clave) || { clave: clave, nombres: new Map(), n: 0, criticos: 0, suma: 0, con: 0, accionados: 0, conTexto: 0 };
     o.n++;
+    o.nombres.set(crudo, (o.nombres.get(crudo) || 0) + 1);
+    if (x.texto) o.conTexto++;
     if (x.estrellas != null){ o.suma += x.estrellas; o.con++; if (x.estrellas <= 2) o.criticos++; }
-    if (!x.accionado) o.sinAccion++;
-    mapa.set(k, o);
+    if (x.accionado) o.accionados++;
+    mapa.set(clave, o);
   });
-  const top = Array.from(mapa.values())
-    .sort((a, b) => (b.criticos - a.criticos) || (b.n - a.n)).slice(0, 8);
-  if (!top.length){ $("#duele").innerHTML = '<p class="vacio">Sin comentarios en este periodo.</p>'; return; }
-  $("#duele").innerHTML = '<table class="tabla"><thead><tr><th>Guía o tema</th><th>Menciones</th><th>Críticos</th><th>Nota</th></tr></thead><tbody>' +
-    top.map(t => '<tr><td>' + escapar(t.k) + '</td><td class="tabular">' + t.n + '</td>' +
-      '<td class="tabular">' + (t.criticos ? '<span class="etq alerta">' + t.criticos + '</span>' : "—") + '</td>' +
-      '<td class="tabular">' + (t.con ? (t.suma / t.con).toFixed(1) : "—") + '</td></tr>').join("") +
-    '</tbody></table>';
+
+  const todos = Array.from(mapa.values()).sort((a, b) => (b.n - a.n) || (b.criticos - a.criticos));
+  todos.forEach(o => {
+    o.nombre = Array.from(o.nombres.entries()).sort((a, b) => b[1] - a[1])[0][0];
+    o.plataforma = esPlataforma(o.clave);
+  });
+  const clinicos = todos.filter(o => !o.plataforma).slice(0, 10);
+  const plataforma = todos.filter(o => o.plataforma).slice(0, 6);
+
+  if (!todos.length){ $("#duele").innerHTML = '<p class="vacio">Sin temas en este periodo.</p>'; return; }
+
+  const tabla = (filas, titulo) => {
+    if (!filas.length) return '';
+    return (titulo ? '<span class="etiqueta sub">' + titulo + '</span>' : '') +
+      '<table class="tabla"><thead><tr><th>Tema</th><th>Personas</th><th>Nota</th><th>Estado</th></tr></thead><tbody>' +
+      filas.map(o => {
+        const estado = o.accionados
+          ? '<span class="etq lima">con mejora</span>'
+          : (o.criticos ? '<span class="etq alerta">sin tocar</span>' : '<span class="mini">sin tocar</span>');
+        return '<tr class="pinchable' + (f.tema === o.clave ? ' activa' : '') + '" data-tema="' + o.clave + '" role="button" tabindex="0">' +
+          '<td>' + escapar(o.nombre) + '</td>' +
+          '<td class="tabular"><b>' + o.n + '</b></td>' +
+          '<td class="tabular">' + (o.con ? (o.suma / o.con).toFixed(1) : "—") + '</td>' +
+          '<td>' + estado + '</td></tr>';
+      }).join("") + '</tbody></table>';
+  };
+
+  $("#duele").innerHTML = tabla(clinicos, "") + tabla(plataforma, "Sobre la plataforma") +
+    '<p class="mini">Ordenado por cuánta gente lo menciona. Clic en una fila para ver esos comentarios abajo.</p>';
 }
 
 function pintarComentarios(lista){
@@ -509,4 +584,72 @@ function pintarNotas(lista){
     return '<button class="chip" data-n="' + v + '" aria-pressed="' + activo + '">' +
       par[1] + ' <b class="tabular">' + n + '</b></button>';
   }).join("");
+}
+
+/* ============================================================
+   7. Ayudas de presentación
+   ============================================================ */
+function colorNota(v){
+  if (v == null) return "#8a8a8a";
+  if (v < 3.5) return "#d64545";
+  if (v < 4.5) return "#2f6fed";
+  return "#18a058";
+}
+
+function etqMes(m){
+  return String(m).slice(5) + "/" + String(m).slice(2, 4);
+}
+
+function normalizar(s){
+  return String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+const PALABRAS_PLATAFORMA = ["plataforma","pagina","app","aplicacion","buscador","busqueda","filtro",
+  "precio","pago","pague","suscripcion","costo","tema","temas","protocolo","protocolos","actualizad",
+  "letra","color","colores","diseno","interfaz","enredado","entender","lento","carga","sesion","login",
+  "clave","correo","notificacion","celular","movil"];
+
+function esPlataforma(clave){
+  return PALABRAS_PLATAFORMA.some(p => clave.indexOf(p) > -1);
+}
+
+function estilos(){
+  if (document.getElementById("estilos-panel-feedback")) return;
+  const e = document.createElement("style");
+  e.id = "estilos-panel-feedback";
+  e.textContent = [
+    ".filtros-fila{align-items:center}",
+    ".rotulo{font-size:11px;text-transform:uppercase;letter-spacing:.08em;opacity:.55;min-width:64px;display:inline-block}",
+    ".etiqueta.sub{display:block;margin:14px 0 4px}",
+    ".tabla tr.pinchable{cursor:pointer}",
+    ".tabla tr.pinchable:hover td{background:rgba(127,127,127,.09)}",
+    ".tabla tr.activa td{background:rgba(47,111,237,.14);font-weight:600}",
+    ".lineas{width:100%;height:auto;display:block}",
+    ".lineas .banda{opacity:.09}",
+    ".lineas .banda.verde{fill:#18a058}",
+    ".lineas .banda.azul{fill:#2f6fed}",
+    ".lineas .banda.roja{fill:#d64545}",
+    ".lineas .guia{stroke:currentColor;opacity:.15;stroke-width:1;stroke-dasharray:3 5}",
+    ".lineas .eje{font-size:11px;fill:currentColor;opacity:.55}",
+    ".lineas .tramo{stroke-width:2.5;stroke-linecap:round}",
+    ".lineas .valor{font-size:12px;font-weight:700}",
+    ".lineas .bolita{stroke:#fff;stroke-width:2}",
+    ".lineas .punto-vacio{fill:currentColor;opacity:.25}",
+    ".lineas .aura{opacity:.3;transform-box:fill-box;transform-origin:center;animation:pulso 2s ease-out infinite}",
+    "@keyframes pulso{0%{transform:scale(.7);opacity:.4}70%{transform:scale(1.9);opacity:0}100%{transform:scale(1.9);opacity:0}}",
+    ".festejo{display:flex;align-items:center;gap:10px;margin:6px 0 0;font-size:13px}",
+    ".festejo b{color:#18a058}",
+    ".chispas{position:relative;display:inline-block;width:32px;height:18px;flex:none}",
+    ".chispas i{position:absolute;bottom:2px;width:5px;height:5px;border-radius:1px;opacity:0;animation:confeti 1.8s ease-in-out infinite}",
+    ".chispas i:nth-child(1){left:0;background:#18a058;animation-delay:0s}",
+    ".chispas i:nth-child(2){left:6px;background:#2f6fed;animation-delay:.2s}",
+    ".chispas i:nth-child(3){left:12px;background:#f2b705;animation-delay:.4s}",
+    ".chispas i:nth-child(4){left:18px;background:#d64545;animation-delay:.6s}",
+    ".chispas i:nth-child(5){left:24px;background:#18a058;animation-delay:.8s}",
+    ".chispas i:nth-child(6){left:9px;background:#f2b705;animation-delay:1s}",
+    "@keyframes confeti{0%{transform:translateY(0) rotate(0deg);opacity:0}25%{opacity:1}100%{transform:translateY(-16px) rotate(200deg);opacity:0}}",
+    "@media (prefers-reduced-motion: reduce){.lineas .aura,.chispas i{animation:none;opacity:.6}}"
+  ].join("\n");
+  document.head.appendChild(e);
 }
