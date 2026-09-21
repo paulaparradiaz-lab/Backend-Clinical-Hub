@@ -261,11 +261,24 @@ async function entrar(){
   $("#enviar").textContent = "Enviar enlace";
   if (error) {
     aviso.className = "aviso mal";
-    aviso.textContent = "No se pudo enviar: " + error.message;
+    aviso.textContent = traducirError(error.message);
     return;
   }
   aviso.className = "aviso ok";
   aviso.textContent = "Listo. Revisa tu correo y abre el enlace.";
+}
+
+/* Supabase responde en inglés; aquí se traducen los casos conocidos
+   y el resto cae en un mensaje genérico. */
+function traducirError(msg){
+  const m = String(msg).toLowerCase();
+  if (m.includes("signups not allowed"))
+    return "Ese correo no tiene acceso al panel.";
+  if (m.includes("rate limit") || m.includes("only request this after"))
+    return "Pediste varios enlaces seguidos. Espera un minuto y vuelve a intentar.";
+  if (m.includes("invalid format") || m.includes("validate email"))
+    return "Ese correo no tiene un formato válido.";
+  return "No se pudo enviar el enlace. Intenta de nuevo en un momento.";
 }
 
 $("#salir").addEventListener("click", async () => {
