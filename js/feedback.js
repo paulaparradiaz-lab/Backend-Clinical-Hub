@@ -213,7 +213,7 @@ function pintarKpis(lista){
     delta = '<span class="delta ' + (d >= 0 ? "sube" : "baja") + '">' + signo + " " + Math.abs(d).toFixed(2) + " vs. periodo anterior</span>";
   }
   const criticos = notas.filter(x => x.estrellas <= 2).length;
-  const conTexto = (f.notas.length ? lista.slice() : lista.filter(x => x.texto));
+  const conTexto = lista.filter(x => x.texto);
   const sinRevisar = conTexto.filter(x => !x.revisado).length;
   const accionados = conTexto.filter(x => x.accionado).length;
 
@@ -315,7 +315,7 @@ function pintarDuele(lista){
 }
 
 function pintarComentarios(lista){
-  const conTexto = lista.filter(x => x.texto)
+  const conTexto = (f.notas.length ? lista.slice() : lista.filter(x => x.texto))
     .sort((a, b) => ((a.estrellas == null ? 9 : a.estrellas) - (b.estrellas == null ? 9 : b.estrellas)) ||
                     (new Date(b.fecha) - new Date(a.fecha)));
   $("#cuenta-comentarios").textContent = lista.filter(x => x.texto).length + " con comentario · " + lista.length + " respuestas";
