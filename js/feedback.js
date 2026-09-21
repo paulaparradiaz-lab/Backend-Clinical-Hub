@@ -7,14 +7,19 @@ import { sb, $, estado, COLORES, escapar, fecha, num, dec, pct, avisar,
          abrirVentana, leer, opcionesEquipo, opciones, nombreEtiqueta } from "./nucleo.js";
 
 let filas = [];
-const f = { canal:"todos", dias:90, foco:"todos", etiqueta:"", texto:"", notas:[], tema:"", temaNombre:"" };
+const f = { canal:"todos", tipo:"todos", dias:90, foco:"todos", etiqueta:"", pais:"", texto:"", notas:[], tema:"", temaNombre:"" };
 
 const CANALES = [["todos","Todo"], ["web","Sitio web"], ["whatsapp","WhatsApp"]];
+const TIPOS   = [["todos","Todo"], ["opinion","Opiniones"], ["busqueda","Búsquedas"]];
 const RANGOS  = [["7","1 semana"], ["30","1 mes"], ["90","90 días"], ["365","12 meses"], ["0","Histórico"]];
 const FOCOS   = [["todos","Todas"], ["texto","Con comentario"], ["criticos","Críticos 1–2"],
                  ["sin_revisar","Sin revisar"], ["sin_accion","Sin mejora"]];
 
 const NOTAS = [["","Todas"], ["5","5 ★"], ["4","4 ★"], ["3","3 ★"], ["2","2 ★"], ["1","1 ★"], ["0","Sin nota"]];
+
+const GRUPOS = [{ clave:"promotor",  nombre:"Promotores 4–5 ★",  notas:["5","4"], color:5 },
+                { clave:"neutro",    nombre:"Neutros 3 ★",       notas:["3"],     color:3 },
+                { clave:"detractor", nombre:"Detractores 1–2 ★", notas:["2","1"], color:1 }];
 
 /* ============================================================
    1. Armazón de la pestaña
@@ -40,6 +45,10 @@ function armazon(){
     <div class="filtros" id="f-canal" role="group" aria-label="Fuente"></div>
   </div>
   <div class="filtros-fila">
+    <span class="rotulo">Tipo</span>
+    <div class="filtros" id="f-tipo" role="group" aria-label="Tipo de registro"></div>
+  </div>
+  <div class="filtros-fila">
     <span class="rotulo">Periodo</span>
     <div class="filtros" id="f-rango" role="group" aria-label="Periodo"></div>
   </div>
@@ -51,6 +60,7 @@ function armazon(){
     <span class="rotulo">Filtros</span>
     <div class="filtros" id="f-foco" role="group" aria-label="Foco"></div>
     <select class="campo compacto" id="f-etiqueta" aria-label="Etiqueta"></select>
+    <select class="campo compacto" id="f-pais" aria-label="País"></select>
     <input class="campo compacto buscador" id="f-texto" type="search" placeholder="Buscar en los comentarios…">
   </div>
 
@@ -64,6 +74,7 @@ function armazon(){
     <section class="caja">
       <span class="etiqueta">Cómo se reparten las calificaciones</span><span class="mini">Toca un chip o una barra para filtrar</span>
       <div class="reparto" id="reparto"></div>
+      <div id="balance"></div>
     </section>
     <section class="caja">
       <span class="etiqueta">Mes a mes</span>
@@ -101,12 +112,15 @@ function conectar(){
     estado.etiquetas.map(e => '<option value="' + e.clave + '">' + escapar(e.nombre) + '</option>').join("");
 
   $("#f-canal").addEventListener("click", e => elegir(e, "canal"));
+  $("#f-tipo").addEventListener("click", e => elegir(e, "tipo"));
   $("#f-rango").addEventListener("click", e => elegir(e, "dias"));
   $("#f-foco").addEventListener("click",  e => elegir(e, "foco"));
   $("#f-etiqueta").addEventListener("change", e => { f.etiqueta = e.target.value; pintar(); });
+  $("#f-pais").addEventListener("change", e => { f.pais = e.target.value; pintar(); });
   $("#f-texto").addEventListener("input", e => { f.texto = e.target.value.trim().toLowerCase(); pintar(); });
   $("#f-notas").addEventListener("click", e => { const b = e.target.closest("button[data-n]"); if (b) alternarNota(b.dataset.n); });
   $("#reparto").addEventListener("click", e => { const b = e.target.closest("[data-n]"); if (b) alternarNota(b.dataset.n); });
+  $("#balance").addEventListener("click", e => { const b = e.target.closest("[data-g]"); if (b) alternarGrupo(b.dataset.g); });
   $("#btn-recargar").addEventListener("click", () => cargar());
   $("#comentarios").addEventListener("click", alClic);
   $("#activos").addEventListener("click", e => {
@@ -140,6 +154,7 @@ function elegir(e, campo){
 
 function pintarChips(){
   fila("#f-canal", CANALES, f.canal);
+  fila("#f-tipo", TIPOS, f.tipo);
   fila("#f-rango", RANGOS,  String(f.dias));
   fila("#f-foco",  FOCOS,   f.foco);
 }
@@ -148,6 +163,17 @@ function fila(donde, lista, activo){
   $(donde).innerHTML = lista.map(par =>
     '<button class="chip" data-v="' + par[0] + '" aria-pressed="' + (String(par[0]) === String(activo)) + '">' +
     escapar(par[1]) + '</button>').join("");
+}
+
+function pintarPaises(){
+  const sel = $("#f-pais");
+  if (!sel) return;
+  const cuenta = new Map();
+  filas.forEach(x => { if (x.pais) cuenta.set(x.pais, (cuenta.get(x.pais) || 0) + 1); });
+  const lista = Array.from(cuenta.entries()).sort((a, b) => b[1] - a[1]);
+  sel.innerHTML = '<option value="">Todos los países</option>' +
+    lista.map(p => '<option value="' + escapar(p[0]) + '">' + escapar(nombrePais(p[0])) + ' · ' + p[1] + '</option>').join("");
+  sel.value = f.pais;
 }
 
 /* ============================================================
@@ -160,6 +186,7 @@ async function cargar(){
     return;
   }
   filas = data || [];
+  pintarPaises();
   pintar();
 }
 
@@ -184,6 +211,9 @@ function base(atras){
 
 function filtradas(omitir){
   return base(0).filter(x => {
+    if (f.tipo === "opinion" && esBusqueda(x)) return false;
+    if (f.tipo === "busqueda" && !esBusqueda(x)) return false;
+    if (f.pais && x.pais !== f.pais) return false;
     if (omitir !== "notas" && f.notas.length){ const k = x.estrellas == null ? "0" : String(x.estrellas); if (f.notas.indexOf(k) === -1) return false; }
     if (omitir !== "tema" && f.tema && normalizar(x.guia_de_referencia || x.tema_puntual || "") !== f.tema) return false;
     if (f.etiqueta && (x.etiquetas || []).indexOf(f.etiqueta) === -1) return false;
@@ -211,6 +241,7 @@ function pintar(){
   pintarNotas(filtradas("notas"));
   pintarKpis(lista);
   pintarReparto(lista);
+  pintarBalance(lista);
   pintarTendencia(lista);
   pintarEtiquetas(lista);
   pintarDuele(filtradas("tema"));
@@ -235,17 +266,19 @@ function pintarKpis(lista){
     delta = '<span class="delta ' + (d >= 0 ? "sube" : "baja") + '">' + signo + " " + Math.abs(d).toFixed(2) + " vs. periodo anterior</span>";
   }
   const criticos = notas.filter(x => x.estrellas <= 2).length;
+  const busquedas = lista.filter(esBusqueda).length;
   const conTexto = lista.filter(x => x.texto);
   const sinRevisar = conTexto.filter(x => !x.revisado).length;
   const accionados = conTexto.filter(x => x.accionado).length;
 
   $("#kpis").innerHTML =
     tarjeta(prom == null ? "—" : prom.toFixed(2), "Promedio", delta, true) +
-    tarjeta(num(notas.length), "Calificaciones", num(lista.length) + " respuestas") +
+    tarjeta(num(notas.length), "Calificaciones", num(lista.length) + " respuestas" +
+      (busquedas ? " · " + num(busquedas) + " de búsqueda" : "")) +
     tarjeta(num(criticos), "Críticos 1–2", pct(criticos, notas.length) + "% de las notas") +
-    tarjeta(num(conTexto.length), "Con comentario", "") +
-    tarjeta(num(sinRevisar), "Sin revisar", sinRevisar ? "te están esperando" : "todo al día") +
-    tarjeta(pct(accionados, conTexto.length) + "%", "Accionabilidad", num(accionados) + " con mejora");
+    tarjeta(num(conTexto.length), "Con comentario", pct(conTexto.length, lista.length) + "% de las respuestas") +
+    tarjeta(num(sinRevisar), "Sin revisar", sinRevisar ? "de " + num(conTexto.length) + " con comentario" : "todo al día") +
+    tarjeta(pct(accionados, conTexto.length) + "%", "Accionabilidad", num(accionados) + " de " + num(conTexto.length) + " con comentario");
 }
 
 function pintarReparto(lista){
@@ -261,6 +294,25 @@ function pintarReparto(lista){
       '<span class="fila-num tabular"><b>' + c + '</b> · ' + pct(c, notas.length) + '%</span>' +
       '</div>';
   }).join("");
+}
+
+function pintarBalance(lista){
+  const caja = $("#balance");
+  if (!caja) return;
+  const notas = conNota(lista);
+  if (!notas.length){ caja.innerHTML = ""; return; }
+  const cuenta = GRUPOS.map(g => notas.filter(x => g.notas.indexOf(String(x.estrellas)) > -1).length);
+  const tope = Math.max(1, cuenta[0], cuenta[1], cuenta[2]);
+  const saldo = Math.round(cuenta[0] / notas.length * 100) - Math.round(cuenta[2] / notas.length * 100);
+  caja.innerHTML = '<span class="etiqueta sub">Balance de satisfacción</span>' +
+    GRUPOS.map((g, i) =>
+      '<div class="fila pinchable" data-g="' + g.clave + '" role="button" tabindex="0" aria-pressed="' + grupoActivo(g) + '">' +
+      '<span class="fila-etq">' + g.nombre + '</span>' +
+      '<span class="barra"><span style="width:' + (cuenta[i] / tope * 100) + '%;background:' + COLORES[g.color] + '"></span></span>' +
+      '<span class="fila-num tabular"><b>' + cuenta[i] + '</b> · ' + pct(cuenta[i], notas.length) + '%</span>' +
+      '</div>').join("") +
+    '<p class="mini">Promotores menos detractores: <b>' + (saldo > 0 ? "+" : "") + saldo +
+    '</b> puntos. Clic en una fila para quedarte solo con ese grupo.</p>';
 }
 
 function porMes(lista){
@@ -383,7 +435,7 @@ function pintarDuele(lista){
   const tabla = (filas, titulo) => {
     if (!filas.length) return '';
     return (titulo ? '<span class="etiqueta sub">' + titulo + '</span>' : '') +
-      '<table class="tabla"><thead><tr><th>Tema</th><th>Personas</th><th>Nota</th><th>Estado</th></tr></thead><tbody>' +
+      '<table class="tabla"><thead><tr><th>Tema</th><th>Menciones</th><th>Nota</th><th>Estado</th></tr></thead><tbody>' +
       filas.map(o => {
         const estado = o.accionados
           ? '<span class="etq lima">con mejora</span>'
@@ -397,7 +449,7 @@ function pintarDuele(lista){
   };
 
   $("#duele").innerHTML = tabla(clinicos, "") + tabla(plataforma, "Sobre la plataforma") +
-    '<p class="mini">Ordenado por cuánta gente lo menciona. Clic en una fila para ver esos comentarios abajo.</p>';
+    '<p class="mini">Ordenado por menciones, incluidas las búsquedas sin resultado. Clic en una fila para ver esos comentarios abajo.</p>';
 }
 
 function pintarComentarios(lista){
@@ -580,10 +632,12 @@ function rotuloDe(lista, v){
 function fichasActivas(){
   const out = [];
   if (f.canal !== "todos") out.push({ campo:"canal", valor:"", txt:"Fuente: " + rotuloDe(CANALES, f.canal) });
+  if (f.tipo !== "todos") out.push({ campo:"tipo", valor:"", txt:"Tipo: " + rotuloDe(TIPOS, f.tipo) });
   if (f.foco  !== "todos") out.push({ campo:"foco",  valor:"", txt:rotuloDe(FOCOS, f.foco) });
   f.notas.slice().sort().reverse().forEach(n =>
     out.push({ campo:"nota", valor:n, txt:"Reseña: " + rotuloDe(NOTAS, n) }));
   if (f.etiqueta) out.push({ campo:"etiqueta", valor:"", txt:"Etiqueta: " + nombreEtiqueta(f.etiqueta) });
+  if (f.pais) out.push({ campo:"pais", valor:"", txt:"País: " + nombrePais(f.pais) });
   if (f.tema)     out.push({ campo:"tema",     valor:"", txt:"Tema: " + (f.temaNombre || f.tema) });
   if (f.texto)    out.push({ campo:"texto",    valor:"", txt:"Busca: " + f.texto });
   return out;
@@ -594,6 +648,8 @@ function pintarActivos(){
   if (!caja) return;
   const sel = $("#f-etiqueta");
   if (sel) sel.classList.toggle("filtrando", !!f.etiqueta);
+  const selPais = $("#f-pais");
+  if (selPais) selPais.classList.toggle("filtrando", !!f.pais);
   const lista = fichasActivas();
   caja.hidden = !lista.length;
   if (!lista.length){ caja.innerHTML = ""; return; }
@@ -606,17 +662,30 @@ function pintarActivos(){
 
 function quitarFiltro(campo, valor){
   if (campo === "todo"){
-    f.canal = "todos"; f.foco = "todos"; f.etiqueta = ""; f.texto = "";
+    f.canal = "todos"; f.tipo = "todos"; f.foco = "todos"; f.etiqueta = ""; f.pais = ""; f.texto = "";
     f.notas = []; f.tema = ""; f.temaNombre = "";
     $("#f-etiqueta").value = "";
+    $("#f-pais").value = "";
     $("#f-texto").value = "";
     pintarChips();
   }
   else if (campo === "nota"){ const i = f.notas.indexOf(valor); if (i > -1) f.notas.splice(i, 1); }
   else if (campo === "etiqueta"){ f.etiqueta = ""; $("#f-etiqueta").value = ""; }
+  else if (campo === "pais"){ f.pais = ""; $("#f-pais").value = ""; }
   else if (campo === "texto"){ f.texto = ""; $("#f-texto").value = ""; }
   else if (campo === "tema"){ f.tema = ""; f.temaNombre = ""; }
   else { f[campo] = "todos"; pintarChips(); }
+  pintar();
+}
+
+function grupoActivo(g){
+  return g.notas.length === f.notas.length && g.notas.every(n => f.notas.indexOf(n) > -1);
+}
+
+function alternarGrupo(clave){
+  const g = GRUPOS.find(x => x.clave === clave);
+  if (!g) return;
+  f.notas = grupoActivo(g) ? [] : g.notas.slice();
   pintar();
 }
 
@@ -649,6 +718,20 @@ function pintarNotas(lista){
 /* ============================================================
    7. Ayudas de presentación
    ============================================================ */
+function esBusqueda(x){
+  return String(x.origen || "").indexOf("buscador") === 0;
+}
+
+const PAISES = { CO:"Colombia", MX:"México", PE:"Perú", ES:"España", CL:"Chile", EC:"Ecuador",
+  PA:"Panamá", US:"Estados Unidos", AR:"Argentina", BO:"Bolivia", BR:"Brasil", CR:"Costa Rica",
+  DO:"República Dominicana", GT:"Guatemala", HN:"Honduras", NI:"Nicaragua", PY:"Paraguay",
+  SV:"El Salvador", UY:"Uruguay", VE:"Venezuela" };
+
+function nombrePais(c){
+  const k = String(c || "").toUpperCase();
+  return PAISES[k] || k;
+}
+
 function colorNota(v){
   if (v == null) return "#8a8a8a";
   if (v < 3.5) return "#d64545";
