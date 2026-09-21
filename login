@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sustancia P · Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --fondo:#F5F7F5;
+  --superficie:#FFFFFF;
+  --tinta:#1A2B26;
+  --tinta-suave:#5C6F69;
+  --linea:#DFE5E1;
+  --primario:#146B5A;
+  --primario-claro:#E4F0EC;
+  --e1:#C0492C;
+  --e2:#D08A3E;
+  --e3:#B5A54E;
+  --e4:#5E9A6E;
+  --e5:#146B5A;
+  --radio:6px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--fondo);
+  color:var(--tinta);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+.tabular{font-variant-numeric:tabular-nums}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--primario);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- Acceso ---------- */
+#acceso{
+  min-height:100dvh;
+  display:grid;
+  place-items:center;
+  padding:24px;
+}
+.acceso-caja{width:100%;max-width:380px}
+.acceso-marca{
+  font-size:13px;letter-spacing:.02em;color:var(--tinta-suave);
+  margin:0 0 32px;
+}
+.acceso-caja h1{
+  font-size:28px;font-weight:600;line-height:1.2;margin:0 0 8px;
+  letter-spacing:-.02em;
+}
+.acceso-caja p{margin:0 0 24px;color:var(--tinta-suave);font-size:14px}
+.campo{
+  width:100%;padding:11px 13px;border:1px solid var(--linea);
+  border-radius:var(--radio);background:var(--superficie);
+  font:inherit;color:var(--tinta);
+}
+.campo:focus{border-color:var(--primario);outline:none}
+.boton{
+  width:100%;margin-top:10px;padding:11px 13px;border:none;
+  border-radius:var(--radio);background:var(--primario);color:#fff;
+  font-weight:500;
+}
+.boton:hover{background:#0F5748}
+.boton[disabled]{opacity:.5;cursor:default}
+.aviso{margin-top:16px;font-size:14px;line-height:1.5}
+.aviso.ok{color:var(--primario)}
+.aviso.mal{color:var(--e1)}
+
+/* ---------- Estructura ---------- */
+#panel{display:none;min-height:100dvh;grid-template-columns:200px 1fr}
+#panel.activo{display:grid}
+.rail{
+  border-right:1px solid var(--linea);
+  padding:24px 0;
+  display:flex;flex-direction:column;
+}
+.rail-marca{padding:0 20px 24px;font-size:13px;color:var(--tinta-suave)}
+.rail nav{display:flex;flex-direction:column}
+.rail a{
+  padding:8px 20px;text-decoration:none;color:var(--tinta);
+  font-size:14px;border-left:2px solid transparent;
+}
+.rail a[aria-current="page"]{
+  border-left-color:var(--primario);color:var(--primario);font-weight:500;
+  background:var(--primario-claro);
+}
+.rail a[aria-disabled="true"]{color:#A8B5B0;cursor:default}
+.rail-pie{margin-top:auto;padding:16px 20px 0;font-size:13px;color:var(--tinta-suave)}
+.rail-pie button{
+  background:none;border:none;padding:0;color:var(--tinta-suave);
+  text-decoration:underline;font-size:13px;margin-top:6px;
+}
+main{padding:32px 36px 64px;max-width:900px}
+
+.encabezado{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap}
+.encabezado h1{font-size:22px;font-weight:600;margin:0;letter-spacing:-.01em}
+.filtros{display:flex;gap:6px}
+.filtros button{
+  padding:5px 11px;border:1px solid var(--linea);background:var(--superficie);
+  border-radius:var(--radio);font-size:13px;color:var(--tinta-suave);
+}
+.filtros button[aria-pressed="true"]{
+  border-color:var(--primario);color:var(--primario);background:var(--primario-claro);
+  font-weight:500;
+}
+
+/* ---------- Distribución ---------- */
+.bloque{margin-top:32px}
+.bloque > h2{
+  font-size:14px;font-weight:600;margin:0 0 14px;color:var(--tinta-suave);
+}
+.reparto{display:flex;flex-direction:column;gap:7px;max-width:560px}
+.fila{display:grid;grid-template-columns:52px 1fr 64px;align-items:center;gap:12px}
+.fila-etq{font-size:14px;color:var(--tinta-suave)}
+.barra{height:26px;background:#EAEEEB;border-radius:3px;overflow:hidden}
+.barra span{display:block;height:100%;border-radius:3px;transition:width .35s ease}
+.fila-num{font-size:14px;text-align:right;color:var(--tinta-suave)}
+.fila-num b{color:var(--tinta);font-weight:600}
+
+.resumen{
+  display:flex;gap:36px;flex-wrap:wrap;margin-top:22px;padding-top:20px;
+  border-top:1px solid var(--linea);max-width:560px;
+}
+.dato .cifra{font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.1}
+.dato .etq{font-size:13px;color:var(--tinta-suave);margin-top:2px}
+
+/* ---------- Comentarios ---------- */
+.comentario{
+  background:var(--superficie);border:1px solid var(--linea);
+  border-left-width:3px;border-radius:var(--radio);
+  padding:13px 15px;margin-bottom:9px;
+}
+.comentario-meta{
+  display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+  font-size:13px;color:var(--tinta-suave);margin-bottom:6px;
+}
+.estrellas{font-weight:600}
+.origen{
+  padding:1px 7px;border-radius:99px;background:#EDF1EE;font-size:12px;
+}
+.comentario p{margin:0;font-size:14.5px;line-height:1.55}
+.vacio{color:var(--tinta-suave);font-size:14px;padding:20px 0}
+.cargando{color:var(--tinta-suave);font-size:14px;padding:20px 0}
+
+@media (max-width:720px){
+  #panel.activo{grid-template-columns:1fr}
+  .rail{border-right:none;border-bottom:1px solid var(--linea);padding:16px 0}
+  .rail nav{flex-direction:row;overflow-x:auto}
+  .rail a{border-left:none;border-bottom:2px solid transparent;white-space:nowrap}
+  .rail a[aria-current="page"]{border-left:none;border-bottom-color:var(--primario)}
+  .rail-pie{margin-top:12px}
+  main{padding:24px 20px 48px}
+  .fila{grid-template-columns:46px 1fr 56px;gap:8px}
+}
+</style>
+</head>
+<body>
+
+<!-- ========== Pantalla de acceso ========== -->
+<section id="acceso">
+  <div class="acceso-caja">
+    <p class="acceso-marca">Sustancia P</p>
+    <h1>Entra con tu correo</h1>
+    <p>Te enviamos un enlace. Ábrelo desde este mismo dispositivo y quedas dentro.</p>
+    <input class="campo" type="email" id="correo" placeholder="tu@correo.com"
+           autocomplete="email" inputmode="email">
+    <button class="boton" id="enviar">Enviar enlace</button>
+    <p class="aviso" id="aviso" role="status"></p>
+  </div>
+</section>
+
+<!-- ========== Panel ========== -->
+<div id="panel">
+  <aside class="rail">
+    <p class="rail-marca">Sustancia P</p>
+    <nav id="menu"></nav>
+    <div class="rail-pie">
+      <span id="quien"></span>
+      <br>
+      <button id="salir">Cerrar sesión</button>
+    </div>
+  </aside>
+
+  <main>
+    <div class="encabezado">
+      <h1>Feedback</h1>
+      <div class="filtros" id="filtro-origen" role="group" aria-label="Filtrar por origen"></div>
+    </div>
+
+    <div class="filtros" style="margin-top:14px" id="filtro-rango" role="group" aria-label="Filtrar por periodo"></div>
+
+    <section class="bloque">
+      <h2>Cómo se reparten las calificaciones</h2>
+      <div class="reparto" id="reparto"></div>
+      <div class="resumen" id="resumen"></div>
+    </section>
+
+    <section class="bloque">
+      <h2>Comentarios, empezando por los más críticos</h2>
+      <div id="comentarios"><p class="cargando">Cargando…</p></div>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============================================================
+   1. CONFIGURACIÓN
+   La publishable key es pública por diseño y queda visible
+   en este archivo. La que NUNCA va aquí es la sb_secret_...
+   ============================================================ */
+const SUPABASE_URL  = "https://pjpidtavlmqhogikizkm.supabase.co";
+const SUPABASE_ANON = "sb_publishable_rnTlbtk9slMW9Oq2bKrdhg_EtOYRKjU";
+
+/* ============================================================
+   2. SECCIONES — aquí crece el panel.
+   Para sumar ventas mañana: pones activa:true y escribes
+   su función de render. La estructura no cambia.
+   ============================================================ */
+const SECCIONES = [
+  { id:"feedback",  nombre:"Feedback",   activa:true  },
+  { id:"ventas",    nombre:"Ventas",     activa:false },
+  { id:"contenido", nombre:"Contenido",  activa:false },
+  { id:"admin",     nombre:"Administrativo", activa:false }
+];
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+const $ = s => document.querySelector(s);
+const COLORES = { 1:"var(--e1)", 2:"var(--e2)", 3:"var(--e3)", 4:"var(--e4)", 5:"var(--e5)" };
+
+let datos = [];
+let origenActivo = "todos";
+let diasActivos = 90;
+
+/* ---------- Acceso ---------- */
+$("#enviar").addEventListener("click", entrar);
+$("#correo").addEventListener("keydown", e => { if (e.key === "Enter") entrar(); });
+
+async function entrar(){
+  const correo = $("#correo").value.trim();
+  const aviso = $("#aviso");
+  if (!correo || !correo.includes("@")) {
+    aviso.className = "aviso mal";
+    aviso.textContent = "Escribe un correo válido.";
+    return;
+  }
+  $("#enviar").disabled = true;
+  $("#enviar").textContent = "Enviando…";
+  const { error } = await sb.auth.signInWithOtp({
+    email: correo,
+    options: { emailRedirectTo: window.location.origin + window.location.pathname }
+  });
+  $("#enviar").disabled = false;
+  $("#enviar").textContent = "Enviar enlace";
+  if (error) {
+    aviso.className = "aviso mal";
+    aviso.textContent = "No se pudo enviar: " + error.message;
+    return;
+  }
+  aviso.className = "aviso ok";
+  aviso.textContent = "Listo. Revisa tu correo y abre el enlace.";
+}
+
+$("#salir").addEventListener("click", async () => {
+  await sb.auth.signOut();
+  location.reload();
+});
+
+sb.auth.onAuthStateChange((_evento, sesion) => {
+  if (sesion) abrirPanel(sesion);
+});
+
+(async () => {
+  const { data } = await sb.auth.getSession();
+  if (data.session) abrirPanel(data.session);
+})();
+
+function abrirPanel(sesion){
+  if ($("#panel").classList.contains("activo")) return;
+  history.replaceState(null, "", window.location.pathname);
+  $("#acceso").style.display = "none";
+  $("#panel").classList.add("activo");
+  $("#quien").textContent = sesion.user.email;
+  pintarMenu();
+  pintarFiltros();
+  cargarFeedback();
+}
+
+/* ---------- Menú ---------- */
+function pintarMenu(){
+  $("#menu").innerHTML = SECCIONES.map(s => s.activa
+    ? `<a href="#" aria-current="page">${s.nombre}</a>`
+    : `<a href="#" aria-disabled="true" title="Todavía no conectado">${s.nombre}</a>`
+  ).join("");
+  $("#menu").addEventListener("click", e => e.preventDefault());
+}
+
+/* ---------- Filtros ---------- */
+function pintarFiltros(){
+  const origenes = [["todos","Todo"],["web","Sitio web"],["whatsapp","WhatsApp"]];
+  $("#filtro-origen").innerHTML = origenes.map(([v,t]) =>
+    `<button data-origen="${v}" aria-pressed="${v===origenActivo}">${t}</button>`).join("");
+
+  const rangos = [[30,"30 días"],[90,"90 días"],[0,"Todo el histórico"]];
+  $("#filtro-rango").innerHTML = rangos.map(([v,t]) =>
+    `<button data-dias="${v}" aria-pressed="${v===diasActivos}">${t}</button>`).join("");
+
+  $("#filtro-origen").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    origenActivo = b.dataset.origen; refrescarBotones(); pintar();
+  });
+  $("#filtro-rango").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    diasActivos = Number(b.dataset.dias); refrescarBotones(); pintar();
+  });
+}
+
+function refrescarBotones(){
+  document.querySelectorAll("#filtro-origen button").forEach(b =>
+    b.setAttribute("aria-pressed", b.dataset.origen === origenActivo));
+  document.querySelectorAll("#filtro-rango button").forEach(b =>
+    b.setAttribute("aria-pressed", Number(b.dataset.dias) === diasActivos));
+}
+
+/* ---------- Datos ---------- */
+async function cargarFeedback(){
+  const { data, error } = await sb
+    .from("feedback")
+    .select("id,fecha,estrellas,mejora,origen,guia_de_referencia,tema_puntual,pais")
+    .order("fecha", { ascending: false });
+
+  if (error) {
+    $("#comentarios").innerHTML =
+      `<p class="vacio">No se pudieron leer los datos: ${error.message}.
+       Revisa que exista la política de lectura para usuarios autenticados.</p>`;
+    return;
+  }
+  datos = data || [];
+  pintar();
+}
+
+function filtrados(){
+  const corte = diasActivos
+    ? Date.now() - diasActivos * 86400000
+    : 0;
+  return datos.filter(f => {
+    if (origenActivo !== "todos" && f.origen !== origenActivo) return false;
+    if (corte && new Date(f.fecha).getTime() < corte) return false;
+    return true;
+  });
+}
+
+/* ---------- Render ---------- */
+function pintar(){
+  const filas = filtrados();
+  pintarReparto(filas);
+  pintarResumen(filas);
+  pintarComentarios(filas);
+}
+
+function pintarReparto(filas){
+  const conNota = filas.filter(f => f.estrellas >= 1 && f.estrellas <= 5);
+  const cuenta = {1:0,2:0,3:0,4:0,5:0};
+  conNota.forEach(f => cuenta[f.estrellas]++);
+  const tope = Math.max(1, ...Object.values(cuenta));
+
+  $("#reparto").innerHTML = [5,4,3,2,1].map(n => {
+    const c = cuenta[n];
+    const pct = conNota.length ? Math.round(c / conNota.length * 100) : 0;
+    return `<div class="fila">
+      <span class="fila-etq">${n} ${n === 1 ? "estrella" : "estrellas"}</span>
+      <span class="barra"><span style="width:${c / tope * 100}%;background:${COLORES[n]}"></span></span>
+      <span class="fila-num tabular"><b>${c}</b> · ${pct}%</span>
+    </div>`;
+  }).join("");
+}
+
+function pintarResumen(filas){
+  const conNota = filas.filter(f => f.estrellas >= 1 && f.estrellas <= 5);
+  const prom = conNota.length
+    ? (conNota.reduce((a,f) => a + f.estrellas, 0) / conNota.length).toFixed(2)
+    : "—";
+  const criticos = conNota.filter(f => f.estrellas <= 2).length;
+  const pctCriticos = conNota.length ? Math.round(criticos / conNota.length * 100) : 0;
+  const conTexto = filas.filter(f => f.mejora && f.mejora.trim()).length;
+
+  $("#resumen").innerHTML = `
+    <div class="dato"><div class="cifra tabular">${prom}</div><div class="etq">Promedio</div></div>
+    <div class="dato"><div class="cifra tabular">${conNota.length}</div><div class="etq">Calificaciones</div></div>
+    <div class="dato"><div class="cifra tabular">${criticos}</div><div class="etq">De 1 o 2 estrellas (${pctCriticos}%)</div></div>
+    <div class="dato"><div class="cifra tabular">${conTexto}</div><div class="etq">Con comentario</div></div>`;
+}
+
+function pintarComentarios(filas){
+  const conTexto = filas
+    .filter(f => f.mejora && f.mejora.trim())
+    .sort((a,b) => (a.estrellas ?? 9) - (b.estrellas ?? 9));
+
+  if (!conTexto.length) {
+    $("#comentarios").innerHTML =
+      `<p class="vacio">Nadie ha dejado comentario en este periodo. Prueba ampliando el rango.</p>`;
+    return;
+  }
+
+  $("#comentarios").innerHTML = conTexto.map(f => {
+    const n = f.estrellas;
+    const color = COLORES[n] || "var(--linea)";
+    const guia = f.guia_de_referencia || f.tema_puntual;
+    return `<article class="comentario" style="border-left-color:${color}">
+      <div class="comentario-meta">
+        <span class="estrellas" style="color:${color}">${n ? n + "/5" : "sin nota"}</span>
+        <span class="origen">${f.origen === "whatsapp" ? "WhatsApp" : "Sitio web"}</span>
+        <span>${fecha(f.fecha)}</span>
+        ${guia ? `<span>· ${escapar(guia)}</span>` : ""}
+      </div>
+      <p>${escapar(f.mejora)}</p>
+    </article>`;
+  }).join("");
+}
+
+function fecha(iso){
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("es-CO",
+    { timeZone:"America/Bogota", day:"numeric", month:"short", year:"numeric" });
+}
+
+function escapar(t){
+  return String(t).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+}
+</script>
+</body>
+</html>
