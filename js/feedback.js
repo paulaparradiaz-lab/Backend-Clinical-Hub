@@ -7,12 +7,14 @@ import { sb, $, estado, COLORES, escapar, fecha, num, dec, pct, avisar,
          abrirVentana, leer, opcionesEquipo, opciones, nombreEtiqueta } from "./nucleo.js";
 
 let filas = [];
-const f = { canal:"todos", dias:90, foco:"todos", etiqueta:"", texto:"" };
+const f = { canal:"todos", dias:90, foco:"todos", etiqueta:"", texto:"", notas:[] };
 
 const CANALES = [["todos","Todo"], ["web","Sitio web"], ["whatsapp","WhatsApp"]];
 const RANGOS  = [["30","30 días"], ["90","90 días"], ["365","12 meses"], ["0","Todo el histórico"]];
 const FOCOS   = [["todos","Todas"], ["texto","Con comentario"], ["criticos","Críticos 1–2"],
                  ["sin_revisar","Sin revisar"], ["sin_accion","Sin mejora"]];
+
+const NOTAS = [["","Todas"], ["5","5 ★"], ["4","4 ★"], ["3","3 ★"], ["2","2 ★"], ["1","1 ★"], ["0","Sin nota"]];
 
 /* ============================================================
    1. Armazón de la pestaña
@@ -41,6 +43,9 @@ function armazon(){
     <div class="filtros" id="f-foco" role="group" aria-label="Foco"></div>
     <select class="campo compacto" id="f-etiqueta" aria-label="Etiqueta"></select>
     <input class="campo compacto buscador" id="f-texto" type="search" placeholder="Buscar en los comentarios…">
+    </div>
+    <div class="filtros-fila">
+      <div class="filtros" id="f-notas" role="group" aria-label="Calificacion"></div>
   </div>
 
   <p class="aviso" id="aviso-panel" role="status"></p>
@@ -49,7 +54,7 @@ function armazon(){
 
   <div class="rejilla">
     <section class="caja">
-      <span class="etiqueta">Cómo se reparten las calificaciones</span>
+      <span class="etiqueta">Cómo se reparten las calificaciones</span><span class="mini">Toca un chip o una barra para filtrar</span>
       <div class="reparto" id="reparto"></div>
     </section>
     <section class="caja">
@@ -92,6 +97,8 @@ function conectar(){
   $("#f-foco").addEventListener("click",  e => elegir(e, "foco"));
   $("#f-etiqueta").addEventListener("change", e => { f.etiqueta = e.target.value; pintar(); });
   $("#f-texto").addEventListener("input", e => { f.texto = e.target.value.trim().toLowerCase(); pintar(); });
+  $("#f-notas").addEventListener("click", e => { const b = e.target.closest("button[data-n]"); if (b) alternarNota(b.dataset.n); });
+  $("#reparto").addEventListener("click", e => { const b = e.target.closest("[data-n]"); if (b) alternarNota(b.dataset.n); });
   $("#btn-recargar").addEventListener("click", () => cargar());
   $("#comentarios").addEventListener("click", alClic);
   $("#etiquetas-top").addEventListener("click", e => {
@@ -155,8 +162,9 @@ function base(atras){
   });
 }
 
-function filtradas(){
+function filtradas(omitir){
   return base(0).filter(x => {
+    if (!omitir && f.notas.length){ const k = x.estrellas == null ? "0" : String(x.estrellas); if (f.notas.indexOf(k) === -1) return false; }
     if (f.etiqueta && (x.etiquetas || []).indexOf(f.etiqueta) === -1) return false;
     if (f.foco === "texto" && !x.texto) return false;
     if (f.foco === "criticos" && !(x.estrellas != null && x.estrellas <= 2)) return false;
@@ -179,6 +187,7 @@ const promedio = lista => conNota(lista).length
    ============================================================ */
 function pintar(){
   const lista = filtradas();
+  pintarNotas(filtradas(true));
   pintarKpis(lista);
   pintarReparto(lista);
   pintarTendencia(lista);
@@ -224,7 +233,7 @@ function pintarReparto(lista){
   const tope = Math.max(1, cuenta[1], cuenta[2], cuenta[3], cuenta[4], cuenta[5]);
   $("#reparto").innerHTML = [5,4,3,2,1].map(n => {
     const c = cuenta[n];
-    return '<div class="fila">' +
+    return '<div class="fila pinchable" data-n="' + n + '" role="button" tabindex="0" aria-pressed="' + (f.notas.indexOf(String(n)) > -1) + '">' +
       '<span class="fila-etq">' + n + ' ★</span>' +
       '<span class="barra"><span style="width:' + (c / tope * 100) + '%;background:' + COLORES[n] + '"></span></span>' +
       '<span class="fila-num tabular"><b>' + c + '</b> · ' + pct(c, notas.length) + '%</span>' +
@@ -471,4 +480,33 @@ async function ventanaMejora(x){
 
   const sel = document.getElementById("m-accion");
   sel.addEventListener("change", () => { document.getElementById("m-nueva").hidden = !!sel.value; });
+}
+
+/* ============================================================
+   6. Filtro por calificacion (chips y barras del reparto)
+   ============================================================ */
+function alternarNota(v){
+  if (v === "") f.notas = [];
+  else {
+    const i = f.notas.indexOf(v);
+    if (i > -1) f.notas.splice(i, 1); else f.notas.push(v);
+  }
+  pintar();
+}
+
+function pintarNotas(lista){
+  const caja = $("#f-notas");
+  if (!caja) return;
+  const cuenta = {};
+  (lista || []).forEach(x => {
+    const k = x.estrellas == null ? "0" : String(x.estrellas);
+    cuenta[k] = (cuenta[k] || 0) + 1;
+  });
+  caja.innerHTML = NOTAS.map(par => {
+    const v = par[0];
+    const activo = v === "" ? f.notas.length === 0 : f.notas.indexOf(v) > -1;
+    const n = v === "" ? (lista || []).length : (cuenta[v] || 0);
+    return '<button class="chip" data-n="' + v + '" aria-pressed="' + activo + '">' +
+      par[1] + ' <b class="tabular">' + n + '</b></button>';
+  }).join("");
 }
