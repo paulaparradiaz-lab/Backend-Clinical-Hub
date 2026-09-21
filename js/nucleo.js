@@ -42,13 +42,6 @@ export function fechaCorta(iso){
     { timeZone:"America/Bogota", day:"numeric", month:"short" });
 }
 
-/* "2026-04-01" -> "abr 26" */
-export function mesCorto(dia){
-  const d = new Date(String(dia).slice(0, 10) + "T12:00:00Z");
-  return d.toLocaleDateString("es-CO", { timeZone:"UTC", month:"short" }) + " " +
-         String(d.getUTCFullYear()).slice(2);
-}
-
 export const num = n => (n == null || Number.isNaN(Number(n))) ? "—" : Number(n).toLocaleString("es-CO");
 export const dec = (n, d = 2) => (n == null || Number.isNaN(Number(n))) ? "—" : Number(n).toFixed(d);
 export const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
