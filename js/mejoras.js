@@ -17,7 +17,6 @@ const NOMBRE_ESTADO = { propuesta:"Propuesta", en_curso:"En curso", entregada:"E
 const TIPOS = [["contenido","Contenido"], ["producto","Producto"], ["proceso","Proceso"],
                ["soporte","Soporte"], ["otro","Otro"]];
 const PRIORIDADES = [["alta","Prioridad alta"], ["media","Prioridad media"], ["baja","Prioridad baja"]];
-const ESTADOS_TAREA = [["pendiente","Pendiente"], ["en_curso","En curso"], ["hecha","Hecha"], ["descartada","Descartada"]];
 
 /* ============================================================
    1. Armazón
