@@ -21,6 +21,17 @@ La pestaña **Feedback** sirve para los pasos 1 a 3. La pestaña **Mejoras** es 
 "hoja de vida" de la plataforma: qué cambiamos, por qué feedback lo cambiamos,
 quién lo hizo y qué pasó con las notas después.
 
+Los filtros de la pestaña Feedback son **Fuente** (web o WhatsApp), **Tipo**
+(opiniones o búsquedas), **Periodo**, **Reseñas** (estrellas) y una fila de
+**Filtros** con foco, etiqueta, país y texto libre. Todos se combinan y los que
+estén puestos aparecen en la barra *Filtrando por*, con una ficha por filtro y un
+botón para quitarlos.
+
+Ojo con el origen: las filas cuyo `origen` empieza por `buscador-` no son
+opiniones sino búsquedas sin resultado y no traen estrellas. Por eso existe el
+filtro **Tipo**: separa lo que mide satisfacción de lo que mide demanda, y así las
+búsquedas no ensucian el promedio.
+
 ---
 
 ## Cómo está organizado
@@ -33,7 +44,7 @@ Sitio estático, sin build ni dependencias que compilar. Módulos ES nativos y
 | `index.html` | Todo el HTML base y **todo el CSS** (tokens, componentes, responsive). |
 | `js/nucleo.js` | Cliente de Supabase, estado compartido, ventanas modales y utilidades (fechas, números, escapado). |
 | `js/panel.js` | Acceso con 2FA, barra superior y carga de cada pestaña como módulo. |
-| `js/feedback.js` | Pestaña Feedback: filtros, KPIs, gráfica mes a mes, temas pedidos y lista de comentarios. |
+| `js/feedback.js` | Pestaña Feedback: filtros, KPIs, balance de satisfacción, gráfica mes a mes, temas pedidos y lista de comentarios. |
 | `js/mejoras.js` | Pestaña Mejoras: hoja de vida, tareas e impacto. |
 | `CNAME` | Dominio propio de GitHub Pages. |
 
@@ -103,3 +114,6 @@ navegador suelte la versión cacheada de los módulos.
 - El análisis de temas es manual (agrupación por texto normalizado); no hay
   clasificación automática todavía.
 - La tabla `analisis` existe pero el panel aún no la usa.
+- `categoria` en `feedback` repite el catálogo de `etiquetas` y solo está llena en
+13 de 93 filas: conviene migrarla y quedarse con una sola taxonomía.
+- `sentimiento`, `severidad` y `nota_interna` están vacías en todas las filas.
