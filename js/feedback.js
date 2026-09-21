@@ -7,7 +7,7 @@ import { sb, $, estado, COLORES, escapar, fecha, num, dec, pct, avisar,
          abrirVentana, leer, opcionesEquipo, opciones, nombreEtiqueta } from "./nucleo.js";
 
 let filas = [];
-const f = { canal:"todos", dias:90, foco:"todos", etiqueta:"", texto:"", notas:[], tema:"" };
+const f = { canal:"todos", dias:90, foco:"todos", etiqueta:"", texto:"", notas:[], tema:"", temaNombre:"" };
 
 const CANALES = [["todos","Todo"], ["web","Sitio web"], ["whatsapp","WhatsApp"]];
 const RANGOS  = [["7","1 semana"], ["30","1 mes"], ["90","90 días"], ["365","12 meses"], ["0","Histórico"]];
@@ -54,6 +54,8 @@ function armazon(){
         <select class="campo compacto" id="f-etiqueta" aria-label="Etiqueta"></select>
         <input class="campo compacto buscador" id="f-texto" type="search" placeholder="Buscar en los comentarios…">
       </div>
+
+  <div class="activos" id="activos" hidden></div>
 
   <p class="aviso" id="aviso-panel" role="status"></p>
 
@@ -108,10 +110,16 @@ function conectar(){
   $("#reparto").addEventListener("click", e => { const b = e.target.closest("[data-n]"); if (b) alternarNota(b.dataset.n); });
   $("#btn-recargar").addEventListener("click", () => cargar());
   $("#comentarios").addEventListener("click", alClic);
+  $("#activos").addEventListener("click", e => {
+    const b = e.target.closest("[data-quitar]");
+    if (!b) return;
+    quitarFiltro(b.dataset.quitar, b.dataset.valor || "");
+  });
   $("#duele").addEventListener("click", e => {
     const fila = e.target.closest("[data-tema]");
     if (!fila) return;
     f.tema = (f.tema === fila.dataset.tema) ? "" : fila.dataset.tema;
+    f.temaNombre = f.tema ? (fila.dataset.nombre || fila.dataset.tema) : "";
     pintar();
   });
   $("#etiquetas-top").addEventListener("click", e => {
@@ -208,6 +216,7 @@ function pintar(){
   pintarEtiquetas(lista);
   pintarDuele(filtradas("tema"));
   pintarComentarios(lista);
+  pintarActivos();
 }
 
 function tarjeta(cifra, etiqueta, extra, lima){
@@ -380,7 +389,7 @@ function pintarDuele(lista){
         const estado = o.accionados
           ? '<span class="etq lima">con mejora</span>'
           : (o.criticos ? '<span class="etq alerta">sin tocar</span>' : '<span class="mini">sin tocar</span>');
-        return '<tr class="pinchable' + (f.tema === o.clave ? ' activa' : '') + '" data-tema="' + o.clave + '" role="button" tabindex="0">' +
+        return '<tr class="pinchable' + (f.tema === o.clave ? ' activa' : '') + '" data-tema="' + o.clave + '" data-nombre="' + escapar(o.nombre) + '" role="button" tabindex="0">' +
           '<td>' + escapar(o.nombre) + '</td>' +
           '<td class="tabular"><b>' + o.n + '</b></td>' +
           '<td class="tabular">' + (o.con ? (o.suma / o.con).toFixed(1) : "—") + '</td>' +
@@ -396,7 +405,8 @@ function pintarComentarios(lista){
   const conTexto = (f.notas.length ? lista.slice() : lista.filter(x => x.texto))
     .sort((a, b) => ((a.estrellas == null ? 9 : a.estrellas) - (b.estrellas == null ? 9 : b.estrellas)) ||
                     (new Date(b.fecha) - new Date(a.fecha)));
-  $("#cuenta-comentarios").textContent = lista.filter(x => x.texto).length + " con comentario · " + lista.length + " respuestas";
+  $("#cuenta-comentarios").textContent = lista.filter(x => x.texto).length + " con comentario · " +
+    (lista.length === filas.length ? lista.length + " respuestas" : lista.length + " de " + filas.length + " respuestas");
   if (!conTexto.length){
     $("#comentarios").innerHTML = '<p class="vacio">Ninguna respuesta con estos filtros. Prueba con Todo el histórico o quita el filtro de estrellas.</p>';
     return;
@@ -563,6 +573,54 @@ async function ventanaMejora(x){
 /* ============================================================
    6. Filtro por calificacion (chips y barras del reparto)
    ============================================================ */
+function rotuloDe(lista, v){
+  const par = lista.find(x => String(x[0]) === String(v));
+  return par ? par[1] : String(v);
+}
+
+function fichasActivas(){
+  const out = [];
+  if (f.canal !== "todos") out.push({ campo:"canal", valor:"", txt:"Fuente: " + rotuloDe(CANALES, f.canal) });
+  if (f.foco  !== "todos") out.push({ campo:"foco",  valor:"", txt:rotuloDe(FOCOS, f.foco) });
+  f.notas.slice().sort().reverse().forEach(n =>
+    out.push({ campo:"nota", valor:n, txt:"Reseña: " + rotuloDe(NOTAS, n) }));
+  if (f.etiqueta) out.push({ campo:"etiqueta", valor:"", txt:"Etiqueta: " + nombreEtiqueta(f.etiqueta) });
+  if (f.tema)     out.push({ campo:"tema",     valor:"", txt:"Tema: " + (f.temaNombre || f.tema) });
+  if (f.texto)    out.push({ campo:"texto",    valor:"", txt:"Busca: " + f.texto });
+  return out;
+}
+
+function pintarActivos(){
+  const caja = $("#activos");
+  if (!caja) return;
+  const sel = $("#f-etiqueta");
+  if (sel) sel.classList.toggle("filtrando", !!f.etiqueta);
+  const lista = fichasActivas();
+  caja.hidden = !lista.length;
+  if (!lista.length){ caja.innerHTML = ""; return; }
+  caja.innerHTML = '<span class="rotulo">Filtrando por</span>' +
+    lista.map(x => '<button class="ficha" title="Quitar este filtro" data-quitar="' + x.campo +
+      '" data-valor="' + escapar(x.valor) + '">' + escapar(x.txt) +
+      '<span aria-hidden="true">×</span></button>').join("") +
+    '<button class="ficha limpiar" data-quitar="todo">Quitar filtros</button>';
+}
+
+function quitarFiltro(campo, valor){
+  if (campo === "todo"){
+    f.canal = "todos"; f.foco = "todos"; f.etiqueta = ""; f.texto = "";
+    f.notas = []; f.tema = ""; f.temaNombre = "";
+    $("#f-etiqueta").value = "";
+    $("#f-texto").value = "";
+    pintarChips();
+  }
+  else if (campo === "nota"){ const i = f.notas.indexOf(valor); if (i > -1) f.notas.splice(i, 1); }
+  else if (campo === "etiqueta"){ f.etiqueta = ""; $("#f-etiqueta").value = ""; }
+  else if (campo === "texto"){ f.texto = ""; $("#f-texto").value = ""; }
+  else if (campo === "tema"){ f.tema = ""; f.temaNombre = ""; }
+  else { f[campo] = "todos"; pintarChips(); }
+  pintar();
+}
+
 function alternarNota(v){
   if (v === "") f.notas = [];
   else {
@@ -659,6 +717,14 @@ function estilos(){
     ".chispas i:nth-child(5){left:24px;background:#18a058;animation-delay:.8s}",
     ".chispas i:nth-child(6){left:9px;background:#f2b705;animation-delay:1s}",
     "@keyframes confeti{0%{transform:translateY(0) rotate(0deg);opacity:0}25%{opacity:1}100%{transform:translateY(-16px) rotate(200deg);opacity:0}}",
+    ".activos{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 2px}",
+    ".activos .rotulo{min-width:auto}",
+    ".ficha{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(190,240,60,.45);background:rgba(190,240,60,.12);color:inherit;border-radius:999px;padding:5px 11px;font:inherit;font-size:12.5px;line-height:1.2;cursor:pointer}",
+    ".ficha:hover{background:rgba(190,240,60,.22)}",
+    ".ficha span{opacity:.6;font-size:15px;line-height:1}",
+    ".ficha.limpiar{border-style:dashed;border-color:rgba(127,127,127,.55);background:transparent;opacity:.75}",
+    ".ficha.limpiar:hover{opacity:1;background:rgba(127,127,127,.12)}",
+    "select.filtrando{border-color:rgba(190,240,60,.6);box-shadow:inset 0 0 0 1px rgba(190,240,60,.35)}",
     "@media (prefers-reduced-motion: reduce){.lineas .aura,.chispas i{animation:none;opacity:.6}}"
   ].join("\n");
   document.head.appendChild(e);
