@@ -213,7 +213,7 @@ function pintarKpis(lista){
     delta = '<span class="delta ' + (d >= 0 ? "sube" : "baja") + '">' + signo + " " + Math.abs(d).toFixed(2) + " vs. periodo anterior</span>";
   }
   const criticos = notas.filter(x => x.estrellas <= 2).length;
-  const conTexto = lista.filter(x => x.texto);
+  const conTexto = (f.notas.length ? lista.slice() : lista.filter(x => x.texto));
   const sinRevisar = conTexto.filter(x => !x.revisado).length;
   const accionados = conTexto.filter(x => x.accionado).length;
 
@@ -318,9 +318,9 @@ function pintarComentarios(lista){
   const conTexto = lista.filter(x => x.texto)
     .sort((a, b) => ((a.estrellas == null ? 9 : a.estrellas) - (b.estrellas == null ? 9 : b.estrellas)) ||
                     (new Date(b.fecha) - new Date(a.fecha)));
-  $("#cuenta-comentarios").textContent = conTexto.length + " comentarios de " + lista.length + " respuestas";
+  $("#cuenta-comentarios").textContent = lista.filter(x => x.texto).length + " con comentario · " + lista.length + " respuestas";
   if (!conTexto.length){
-    $("#comentarios").innerHTML = '<p class="vacio">Nada que leer con estos filtros. Prueba con “Todo el histórico”.</p>';
+    $("#comentarios").innerHTML = '<p class="vacio">Ninguna respuesta con estos filtros. Prueba con Todo el histórico o quita el filtro de estrellas.</p>';
     return;
   }
   $("#comentarios").innerHTML = conTexto.slice(0, 150).map(tarjetaComentario).join("");
@@ -337,7 +337,7 @@ function tarjetaComentario(x){
       (x.revisado ? '<span class="etq ok">revisado</span>' : '') +
       (x.accionado ? '<span class="etq lima">con mejora</span>' : '') +
     '</div>' +
-    (x.mejora ? '<p>' + escapar(x.mejora) + '</p>' : '<p class="mini">Sin texto libre; solo tema y calificación.</p>') +
+    (x.mejora ? '<p>' + escapar(x.mejora) + '</p>' : '<p class="mini">Calificó pero no escribió comentario.</p>') +
     (x.tema_puntual && x.tema_puntual !== x.mejora ? '<p class="mini">Tema: ' + escapar(x.tema_puntual) + '</p>' : '') +
     '<div class="comentario-pie">' + etqs +
       '<button class="boton-chico" data-accion="etiquetar" data-id="' + x.id + '">Etiquetar</button>' +
