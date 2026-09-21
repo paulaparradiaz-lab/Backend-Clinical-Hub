@@ -4,8 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Clinical Hub · Panel</title>
-<link rel="icon" type="image/png" href="favicon.png">
-<link rel="apple-touch-icon" href="favicon.png">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230e1012%22/%3E%3Crect%20x%3D%2214%22%20y%3D%2212%22%20width%3D%229%22%20height%3D%2240%22%20rx%3D%224.5%22%20fill%3D%22%23addc00%22/%3E%3Crect%20x%3D%2229%22%20y%3D%2216%22%20width%3D%2222%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23f0f2f4%22/%3E%3Crect%20x%3D%2229%22%20y%3D%2229%22%20width%3D%2217%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%238f9297%22/%3E%3Crect%20x%3D%2229%22%20y%3D%2242%22%20width%3D%2220%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%238f9297%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -254,6 +253,44 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
 .ventana-botones{display:flex;gap:8px;margin-top:6px}
 .ventana-botones .boton{flex:1}
 
+
+/* ---------- Chiste de la entrada: marca → trabajo + tiempo → plata ----------
+   El estado final es el estilo base; las animaciones solo cuentan cómo se llega.
+   Con "reducir movimiento" se ve directamente el final. Clic para repetir. */
+.acceso-marca{display:flex;align-items:flex-start;gap:6px;margin-bottom:16px;cursor:pointer;width:100%}
+.acceso-marca .acceso-icono{margin-bottom:0}
+.chiste{flex:0 1 250px;min-width:0;height:auto;display:block;overflow:visible;color:var(--brand-ink)}
+.chiste .flecha{fill:none;stroke:var(--faint);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.chiste .trazo{stroke-dasharray:34;stroke-dashoffset:0}
+.chiste .icono{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.chiste .rot{font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;fill:var(--faint);text-anchor:middle}
+.chiste .billete rect{fill:var(--brand)}
+.chiste .billete text{font-family:var(--sans);font-weight:800;font-size:10px;fill:var(--on-brand);text-anchor:middle;dominant-baseline:central}
+.chiste .pop,.chiste .billete,.chiste .punta{transform-box:fill-box;transform-origin:center}
+.chiste .aguja{transform-box:view-box;transform-origin:112px 22px}
+
+@keyframes ch-trazo{from{stroke-dashoffset:34}to{stroke-dashoffset:0}}
+@keyframes ch-aparece{from{opacity:0}to{opacity:1}}
+@keyframes ch-pop{0%{opacity:0;transform:scale(.2)}70%{opacity:1;transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes ch-gira{from{transform:rotate(0)}to{transform:rotate(1080deg)}}
+@keyframes ch-sale{0%{opacity:0;transform:translate(-44px,6px) scale(.3) rotate(0)}100%{opacity:1}}
+@keyframes ch-flota{0%,100%{translate:0 0}50%{translate:0 -3px}}
+
+.chiste.play .t1{animation:ch-trazo .45s ease-out .2s backwards}
+.chiste.play .p1{animation:ch-aparece .15s linear .6s backwards}
+.chiste.play .trabajo{animation:ch-pop .4s ease-out .7s backwards}
+.chiste.play .mas{animation:ch-aparece .2s linear .95s backwards}
+.chiste.play .tiempo{animation:ch-pop .4s ease-out 1.05s backwards}
+.chiste.play .aguja{animation:ch-aparece .15s linear 1.15s backwards,ch-gira 1.1s cubic-bezier(.3,0,.2,1) 1.3s backwards}
+.chiste.play .r1{animation:ch-aparece .3s linear .9s backwards}
+.chiste.play .r2{animation:ch-aparece .3s linear 1.25s backwards}
+.chiste.play .t2{animation:ch-trazo .45s ease-out 2.15s backwards}
+.chiste.play .p2{animation:ch-aparece .15s linear 2.55s backwards}
+.chiste.play .b1{animation:ch-sale .45s cubic-bezier(.2,.9,.3,1.3) 2.65s backwards,ch-flota 2.4s ease-in-out 3.4s infinite}
+.chiste.play .b2{animation:ch-sale .45s cubic-bezier(.2,.9,.3,1.3) 2.8s backwards,ch-flota 2.1s ease-in-out 3.6s infinite}
+.chiste.play .b3{animation:ch-sale .45s cubic-bezier(.2,.9,.3,1.3) 2.95s backwards,ch-flota 2.7s ease-in-out 3.8s infinite}
+.chiste.play .r3{animation:ch-aparece .3s linear 3.1s backwards}
+
 @media (max-width:760px){
   .rejilla{grid-template-columns:1fr}
   .barra-fila{padding:10px 16px}
@@ -272,7 +309,36 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
      ============================================================ -->
 <section id="acceso">
   <div class="acceso-caja">
-    <img class="acceso-icono" src="favicon.png" alt="" width="44" height="44" onerror="this.remove()">
+    <div class="acceso-marca" id="chiste" title="Clic para verlo otra vez" aria-hidden="true">
+      <img class="acceso-icono" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230e1012%22/%3E%3Crect%20x%3D%2214%22%20y%3D%2212%22%20width%3D%229%22%20height%3D%2240%22%20rx%3D%224.5%22%20fill%3D%22%23addc00%22/%3E%3Crect%20x%3D%2229%22%20y%3D%2216%22%20width%3D%2222%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23f0f2f4%22/%3E%3Crect%20x%3D%2229%22%20y%3D%2229%22%20width%3D%2217%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%238f9297%22/%3E%3Crect%20x%3D%2229%22%20y%3D%2242%22%20width%3D%2220%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%238f9297%22/%3E%3C/svg%3E" alt="" width="44" height="44">
+      <svg class="chiste play" viewBox="0 0 250 58">
+        <path class="flecha trazo t1" d="M4 22H38"/>
+        <path class="flecha punta p1" d="M33 17l5 5-5 5"/>
+
+        <g class="pop trabajo">
+          <rect class="icono" x="49" y="12" width="22" height="15" rx="2"/>
+          <path class="icono" d="M45 31H75"/>
+        </g>
+        <text class="rot r1" x="60" y="52">TRABAJO</text>
+
+        <path class="flecha mas" d="M86 22h6M89 19v6"/>
+
+        <g class="pop tiempo">
+          <circle class="icono" cx="112" cy="22" r="12"/>
+          <path class="icono" d="M112 22l5 3"/>
+        </g>
+        <path class="icono aguja" d="M112 22V13"/>
+        <text class="rot r2" x="112" y="52">TIEMPO</text>
+
+        <path class="flecha trazo t2" d="M134 22H168"/>
+        <path class="flecha punta p2" d="M163 17l5 5-5 5"/>
+
+        <g class="billete b1"><g transform="rotate(-10 190 24)"><rect x="177" y="16" width="26" height="15" rx="2"/><text x="190" y="23.5">$</text></g></g>
+        <g class="billete b2"><g transform="rotate(6 214 18)"><rect x="201" y="10" width="26" height="15" rx="2"/><text x="214" y="17.5">$</text></g></g>
+        <g class="billete b3"><g transform="rotate(-4 236 27)"><rect x="223" y="19" width="26" height="15" rx="2"/><text x="236" y="26.5">$</text></g></g>
+        <text class="rot r3" x="213" y="52">PLATA</text>
+      </svg>
+    </div>
     <span class="etiqueta">Sustancia Pro · Clinical Hub</span>
 
     <div id="paso-login" hidden>
@@ -311,8 +377,7 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
   <header class="barra-superior">
     <div class="barra-fila">
       <a class="marca" href="#" aria-label="Clinical Hub, panel">
-        <img class="marca-icono" src="favicon.png" alt="" width="32" height="32"
-             onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'marca-signo'}))">
+        <img class="marca-icono" src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%230e1012%22/%3E%3Crect%20x%3D%2214%22%20y%3D%2212%22%20width%3D%229%22%20height%3D%2240%22%20rx%3D%224.5%22%20fill%3D%22%23addc00%22/%3E%3Crect%20x%3D%2229%22%20y%3D%2216%22%20width%3D%2222%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23f0f2f4%22/%3E%3Crect%20x%3D%2229%22%20y%3D%2229%22%20width%3D%2217%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%238f9297%22/%3E%3Crect%20x%3D%2229%22%20y%3D%2242%22%20width%3D%2220%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%238f9297%22/%3E%3C/svg%3E" alt="" width="32" height="32">
         <span>
           <span class="marca-nombre">Clinical Hub</span>
           <span class="etiqueta marca-sub">Sustancia Pro · Panel</span>
@@ -465,6 +530,12 @@ async function entrar(){
   if (error) { avisar(traducirError(error.message), "mal"); return; }
   avisar(""); $("#clave").value = "";
   await decidir();
+
+/* Repetir el chiste al hacer clic */
+$("#chiste").addEventListener("click", () => {
+  const s = $("#chiste .chiste");
+  s.classList.remove("play"); void s.getBoundingClientRect(); s.classList.add("play");
+});
 }
 
 async function enrolar(){
