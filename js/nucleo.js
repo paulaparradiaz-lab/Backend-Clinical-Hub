@@ -1,0 +1,164 @@
+/* ============================================================
+   CLINICAL HUB · NÚCLEO
+   Cliente de Supabase, atajos, ventanas y utilidades comunes.
+   Lo que comparten todas las pestañas del panel.
+   ============================================================ */
+
+/* La publishable key es pública por diseño. La sb_secret_... NUNCA va aquí. */
+const SUPABASE_URL  = "https://pjpidtavlmqhogikizkm.supabase.co";
+const SUPABASE_ANON = "sb_publishable_rnTlbtk9slMW9Oq2bKrdhg_EtOYRKjU";
+
+export const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+export const $  = s => document.querySelector(s);
+export const $$ = s => Array.from(document.querySelectorAll(s));
+
+export const COLORES = { 1:"var(--s1)", 2:"var(--s2)", 3:"var(--s3)", 4:"var(--s4)", 5:"var(--s5)" };
+
+/* Estado compartido entre pestañas */
+export const estado = {
+  usuario:   null,  // { id, correo }
+  equipo:    [],    // public.equipo
+  etiquetas: []     // catálogo de public.etiquetas
+};
+
+/* ============================================================
+   1. Texto, fechas y números
+   ============================================================ */
+export function escapar(t){
+  return String(t == null ? "" : t).replace(/[&<>"']/g, c =>
+    ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
+}
+
+export function fecha(iso){
+  if (!iso) return "";
+  return new Date(iso).toLocaleDateString("es-CO",
+    { timeZone:"America/Bogota", day:"numeric", month:"short", year:"numeric" });
+}
+
+export function fechaCorta(iso){
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("es-CO",
+    { timeZone:"America/Bogota", day:"numeric", month:"short" });
+}
+
+/* "2026-04-01" -> "abr 26" */
+export function mesCorto(dia){
+  const d = new Date(String(dia).slice(0, 10) + "T12:00:00Z");
+  return d.toLocaleDateString("es-CO", { timeZone:"UTC", month:"short" }) + " " +
+         String(d.getUTCFullYear()).slice(2);
+}
+
+export const num = n => (n == null || Number.isNaN(Number(n))) ? "—" : Number(n).toLocaleString("es-CO");
+export const dec = (n, d = 2) => (n == null || Number.isNaN(Number(n))) ? "—" : Number(n).toFixed(d);
+export const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
+
+/* ============================================================
+   2. Avisos y botones ocupados
+   ============================================================ */
+export function avisar(texto, tipo, donde = "#aviso"){
+  const a = $(donde);
+  if (!a) return;
+  a.className = "aviso" + (tipo ? " " + tipo : "");
+  a.textContent = texto || "";
+}
+
+export async function ocupado(boton, texto, fn){
+  const original = boton.textContent;
+  boton.disabled = true; boton.textContent = texto;
+  try { await fn(); } finally { boton.disabled = false; boton.textContent = original; }
+}
+
+export function traducirError(msg){
+  const m = String(msg || "").toLowerCase();
+  if (m.includes("invalid login credentials")) return "Correo o contraseña incorrectos.";
+  if (m.includes("email not confirmed")) return "Ese usuario no está confirmado todavía.";
+  if (m.includes("different from the old")) return "La nueva contraseña debe ser distinta de la actual.";
+  if (m.includes("password should be") || m.includes("weak")) return "Esa contraseña es muy corta o muy débil.";
+  if (m.includes("reauthentication") || m.includes("reauthenticate"))
+    return "Por seguridad, cierra sesión, vuelve a entrar y cambia la contraseña enseguida.";
+  if (m.includes("row-level security") || m.includes("row level security"))
+    return "Tu sesión no tiene permiso para guardar esto. Verifica el código de tu app y vuelve a entrar.";
+  if (m.includes("aal2")) return "Necesitas verificar tu código de la app antes de hacer esto.";
+  if (m.includes("totp") || m.includes("invalid code") || m.includes("mfa"))
+    return "Código incorrecto o vencido. Usa el que aparece ahora en la app.";
+  if (m.includes("rate limit") || m.includes("too many")) return "Demasiados intentos seguidos. Espera un minuto.";
+  if (m.includes("duplicate key")) return "Eso ya estaba registrado.";
+  if (m.includes("failed to fetch")) return "Sin conexión con el servidor. Revisa tu internet.";
+  return "No se pudo completar. Intenta de nuevo en un momento.";
+}
+
+/* ============================================================
+   3. Ventana genérica de formularios
+   ============================================================ */
+export function cerrarVentana(){
+  const v = $("#velo-forma");
+  if (!v) return;
+  v.hidden = true;
+  v.innerHTML = "";
+}
+
+export function abrirVentana({ titulo, guia = "", cuerpo = "", aceptar = "Guardar", ancha = false, alAceptar }){
+  const v = $("#velo-forma");
+  v.innerHTML =
+    '<div class="ventana' + (ancha ? " ancha" : "") + '" role="dialog" aria-modal="true" aria-label="' + escapar(titulo) + '">' +
+      '<div class="mast"><h1>' + escapar(titulo) + '</h1></div>' +
+      (guia ? '<p class="guia">' + escapar(guia) + '</p>' : '') +
+      '<div class="forma">' + cuerpo + '</div>' +
+      '<div class="ventana-botones">' +
+        '<button class="boton secundario" data-cerrar>Cancelar</button>' +
+        '<button class="boton" id="forma-ok">' + escapar(aceptar) + '</button>' +
+      '</div>' +
+      '<p class="aviso" id="aviso-forma" role="status"></p>' +
+    '</div>';
+  v.hidden = false;
+  v.querySelector("[data-cerrar]").onclick = cerrarVentana;
+  v.onclick = e => { if (e.target === v) cerrarVentana(); };
+  $("#forma-ok").onclick = () => ocupado($("#forma-ok"), "Guardando…", async () => {
+    try {
+      const salida = await alAceptar();
+      if (salida !== false) cerrarVentana();
+    } catch (err) {
+      avisar(traducirError(err && err.message), "mal", "#aviso-forma");
+    }
+  });
+  const primero = v.querySelector("input, textarea, select");
+  if (primero) setTimeout(() => primero.focus(), 60);
+}
+
+/* Lee un campo del formulario abierto; devuelve null si está vacío */
+export function leer(id){
+  const e = document.getElementById(id);
+  if (!e) return null;
+  const valor = String(e.value || "").trim();
+  return valor === "" ? null : valor;
+}
+
+/* ============================================================
+   4. Catálogos: equipo y etiquetas
+   ============================================================ */
+export async function cargarCatalogos(){
+  const [eq, et] = await Promise.all([
+    sb.from("equipo").select("*").eq("activo", true).order("nombre"),
+    sb.from("etiquetas").select("*").eq("activa", true).order("orden")
+  ]);
+  estado.equipo    = eq.data || [];
+  estado.etiquetas = et.data || [];
+}
+
+export function opcionesEquipo(seleccionado){
+  return '<option value="">Sin asignar</option>' + estado.equipo.map(p =>
+    '<option value="' + p.id + '"' + (p.id === seleccionado ? " selected" : "") + '>' + escapar(p.nombre) + '</option>'
+  ).join("");
+}
+
+export function opciones(lista, seleccionado){
+  return lista.map(par =>
+    '<option value="' + par[0] + '"' + (par[0] === seleccionado ? " selected" : "") + '>' + escapar(par[1]) + '</option>'
+  ).join("");
+}
+
+export function nombreEtiqueta(clave){
+  const e = estado.etiquetas.find(x => x.clave === clave);
+  return e ? e.nombre : clave;
+}
