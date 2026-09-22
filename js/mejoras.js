@@ -100,9 +100,24 @@ async function cargar(){
   acciones = (a.data || []).sort((x, y) =>
     new Date(y.entregada_en || y.creada_en) - new Date(x.entregada_en || x.creada_en));
   tareas = t.data || [];
+  if (estado.foco){ f.estado = "todas"; pintarChips(); }
   pintarKpis();
   pintarTareas();
   pintarAcciones();
+  enfocar();
+}
+
+/* Cuando llegas aqui desde el ranking de Temas pedidos, esta funcion
+   baja hasta la mejora de ese tema y la resalta un momento. */
+function enfocar(){
+  const id = estado.foco;
+  estado.foco = null;
+  if (!id) return;
+  const el = document.querySelector('#acciones article.accion[data-id="' + id + '"]');
+  if (!el) return;
+  el.scrollIntoView({ behavior:"smooth", block:"center" });
+  el.classList.add("resaltada");
+  setTimeout(() => el.classList.remove("resaltada"), 2800);
 }
 
 /* ============================================================
