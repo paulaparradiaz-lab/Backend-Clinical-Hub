@@ -3,7 +3,7 @@
    Análisis del feedback y el paso de un comentario a una mejora.
    Lee public.v_feedback_detalle (feedback + triage + etiquetas + acciones).
    ============================================================ */
-import { sb, $, estado, COLORES, escapar, fecha, num, dec, pct, avisar,
+import { sb, $, estado, COLORES, escapar, fecha, num, pct, avisar,
          abrirVentana, leer, opcionesEquipo, opciones, nombreEtiqueta } from "./nucleo.js";
 
 let filas = [];
