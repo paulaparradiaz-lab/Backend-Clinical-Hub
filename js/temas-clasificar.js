@@ -11,7 +11,7 @@
    Nada es automático: si no está en tema_peticion, está en la
    bandeja esperando que alguien la clasifique.
    ============================================================ */
-import { sb, estado, escapar, avisar, abrirVentana, leer, fecha } from "./nucleo.js";
+import { sb, estado, escapar, avisar, abrirVentana, leer, fecha, traducirError } from "./nucleo.js";
 
 export const clasif = { temas: [], porPeticion: new Map(), descartado: null };
 
@@ -76,58 +76,160 @@ export function nombresDe(x){
    modal de comentarios de un tema.
    ============================================================ */
 export function ventanaClasificar(op){
-  const ids = unicos(op.ids || []);
-  if (!ids.length) return;
-  const actuales = op.actuales || [];
-  const vivos = temasVivos();
+const ids = unicos(op.ids || []);
+if (!ids.length) return;
+const pets = op.peticiones || [];
+let marcados = unicos((op.actuales || []).map(String));
+let filtro = "";
 
-  const lista = vivos.length
-    ? vivos.map(t => '<label class="opcion-tema" style="display:block;margin:4px 0">' +
-        '<input type="checkbox" class="c-tema" value="' + t.id + '"' +
-        (actuales.indexOf(t.id) > -1 ? " checked" : "") + '> ' + escapar(t.nombre) + '</label>').join("")
-    : '<p class="mini">Todavía no has creado temas. Escribe el primero abajo.</p>';
+const lectura = pets.length
+? '<span class="etiqueta">Lo que escribió el médico</span>' +
+'<div id="c-lectura"' + (pets.length > 1 ? ' style="max-height:210px;overflow:auto"' : '') + '>' +
+pets.map(tarjetaLectura).join("") + '</div>'
+: '';
 
-  const cuerpo =
-    '<p class="mini">El texto del médico no se toca. Aquí solo decides en qué temas cuenta.</p>' +
-    '<span class="etiqueta">Mandar a un tema que ya existe</span>' +
-    '<div class="lista-temas" style="max-height:220px;overflow:auto">' + lista + '</div>' +
-    '<span class="etiqueta">O crear temas nuevos</span>' +
-    '<input class="campo" id="c-nuevos" placeholder="Ej.: Shock séptico, Lesión renal aguda">' +
-    '<p class="mini">Separa con comas si el texto pide varios temas a la vez: la petición suma en cada uno.</p>' +
-    '<label class="opcion-tema" style="display:block;margin:4px 0"><input type="checkbox" id="c-limpiar">' +
-    ' Dejar sin clasificar · devolver a la bandeja</label>';
+const cuerpo = lectura +
+'<p class="mini">El texto del médico no se toca. Aquí solo decides en qué temas cuenta.</p>' +
+'<span class="etiqueta">Mandar a un tema que ya existe</span>' +
+'<input class="campo" id="c-buscar" placeholder="Buscar entre tus temas…">' +
+'<div class="lista-temas" id="c-lista" style="max-height:200px;overflow:auto"></div>' +
+'<p class="mini" id="c-marcados"></p>' +
+'<span class="etiqueta">O crear temas nuevos</span>' +
+'<div style="display:flex;gap:8px;align-items:center">' +
+'<input class="campo" id="c-nuevos" style="flex:1 1 auto;margin:0" placeholder="Ej.: Shock séptico, Lesión renal aguda">' +
+'<button class="boton-chico" id="c-anadir" type="button">Añadir</button>' +
+'</div>' +
+'<p class="mini">Añadir guarda de una y deja la ventana abierta, para que le sigas poniendo temas ' +
+'a la misma petición. Separa con comas si quieres varios de un golpe.</p>' +
+'<label class="opcion-tema" style="display:block;margin:4px 0"><input type="checkbox" id="c-limpiar">' +
+' Dejar sin clasificar · devolver a la bandeja</label>';
 
-  abrirVentana({
-    titulo: "Clasificar",
-    guia: (op.nombre ? String(op.nombre).slice(0, 70) + " · " : "") + plural(ids.length, "petición", "peticiones"),
-    cuerpo: cuerpo,
-    aceptar: "Guardar",
-    ancha: true,
-    alAceptar: async () => {
-      const limpiar = marcado("c-limpiar");
-      let finales = [];
-      if (!limpiar){
-        finales = Array.prototype.slice.call(document.querySelectorAll(".c-tema:checked")).map(e => e.value);
-        const nuevos = String(leer("c-nuevos") || "").split(",").map(s => s.trim()).filter(Boolean);
-        for (let i = 0; i < nuevos.length; i++){
-          const id = await idDeTema(nuevos[i]);
-          if (id) finales.push(id);
-        }
-        finales = unicos(finales);
-        if (!finales.length){
-          avisar("Elige un tema, escribe uno nuevo, o marca la casilla de dejar sin clasificar.", "mal", "#aviso-forma");
-          return false;
-        }
-      }
-      await guardarTemas(ids, finales);
-      avisar(limpiar
-        ? plural(ids.length, "petición devuelta", "peticiones devueltas") + " a la bandeja."
-        : "Listo · " + plural(ids.length, "petición clasificada", "peticiones clasificadas"),
-        "", "#aviso-panel");
-      await cargarClasificacion();
-      if (op.recargar) await op.recargar();
-    }
-  });
+/* La lista se repinta cuando buscas o cuando creas un tema nuevo,
+así que lo marcado vive en «marcados» y no en el DOM: si un tema
+queda escondido por la búsqueda, sigue marcado igual. */
+function pintarLista(){
+const caja = document.getElementById("c-lista");
+if (!caja) return;
+const vivos = temasVivos();
+const q = filtro.trim().toLowerCase();
+const vistos = q ? vivos.filter(t => String(t.nombre).toLowerCase().indexOf(q) > -1) : vivos;
+caja.innerHTML = vistos.length
+? vistos.map(t => '<label class="opcion-tema" style="display:block;margin:4px 0">' +
+'<input type="checkbox" class="c-tema" value="' + t.id + '"' +
+(marcados.indexOf(String(t.id)) > -1 ? " checked" : "") + '> ' + escapar(t.nombre) + '</label>').join("")
+: (vivos.length
+? '<p class="mini">Ninguno de tus temas se llama así. Créalo abajo.</p>'
+: '<p class="mini">Todavía no has creado temas. Escribe el primero abajo.</p>');
+pintarMarcados();
+}
+
+function pintarMarcados(){
+const p = document.getElementById("c-marcados");
+if (!p) return;
+const nombres = marcados.map(id => { const t = temaPorId(id); return t ? t.nombre : ""; }).filter(Boolean);
+p.innerHTML = nombres.length ? "Marcados: " + escapar(nombres.join(" · ")) : "";
+}
+
+/* Añadir guarda ya mismo y deja la ventana abierta */
+async function anadir(){
+const btn = document.getElementById("c-anadir");
+const nuevos = String(leer("c-nuevos") || "").split(",").map(s => s.trim()).filter(Boolean);
+if (!nuevos.length && !marcados.length){
+avisar("Escribe el nombre del tema nuevo o marca alguno de la lista.", "mal", "#aviso-forma");
+return;
+}
+if (btn){ btn.disabled = true; btn.textContent = "Guardando…"; }
+try {
+let finales = marcados.slice();
+for (let i = 0; i < nuevos.length; i++){
+const id = await idDeTema(nuevos[i]);
+if (id) finales.push(String(id));
+}
+finales = unicos(finales);
+await guardarTemas(ids, finales);
+await cargarClasificacion();
+marcados = finales;
+pintarLista();
+const inp = document.getElementById("c-nuevos");
+if (inp){ inp.value = ""; inp.focus(); }
+avisar("Guardado en " + plural(finales.length, "tema", "temas") +
+" · sigue poniéndole los que quieras y al final dale Guardar y cerrar.", "", "#aviso-forma");
+if (op.recargar) await op.recargar();
+} catch (err){
+avisar(traducirError(err && err.message), "mal", "#aviso-forma");
+} finally {
+if (btn){ btn.disabled = false; btn.textContent = "Añadir"; }
+}
+}
+
+abrirVentana({
+titulo: "Clasificar",
+guia: plural(ids.length, "petición", "peticiones"),
+cuerpo: cuerpo,
+aceptar: "Guardar y cerrar",
+ancha: true,
+alAceptar: async () => {
+const limpiar = marcado("c-limpiar");
+let finales = [];
+if (!limpiar){
+finales = marcados.slice();
+const nuevos = String(leer("c-nuevos") || "").split(",").map(s => s.trim()).filter(Boolean);
+for (let i = 0; i < nuevos.length; i++){
+const id = await idDeTema(nuevos[i]);
+if (id) finales.push(String(id));
+}
+finales = unicos(finales);
+if (!finales.length){
+avisar("Elige un tema, escribe uno nuevo, o marca la casilla de dejar sin clasificar.", "mal", "#aviso-forma");
+return false;
+}
+}
+await guardarTemas(ids, finales);
+avisar(limpiar
+? plural(ids.length, "petición devuelta", "peticiones devueltas") + " a la bandeja."
+: "Listo · " + plural(ids.length, "petición clasificada", "peticiones clasificadas"),
+"", "#aviso-panel");
+await cargarClasificacion();
+if (op.recargar) await op.recargar();
+}
+});
+
+pintarLista();
+
+const caja = document.getElementById("c-lista");
+if (caja) caja.addEventListener("change", e => {
+const cb = e.target && e.target.closest ? e.target.closest(".c-tema") : null;
+if (!cb) return;
+const v = String(cb.value);
+if (cb.checked){ if (marcados.indexOf(v) < 0) marcados.push(v); }
+else marcados = marcados.filter(x => x !== v);
+pintarMarcados();
+});
+
+const buscador = document.getElementById("c-buscar");
+if (buscador) buscador.addEventListener("input", () => { filtro = buscador.value || ""; pintarLista(); });
+
+const btnAdd = document.getElementById("c-anadir");
+if (btnAdd) btnAdd.onclick = anadir;
+
+const campo = document.getElementById("c-nuevos");
+if (campo) campo.addEventListener("keydown", e => {
+if (e.key === "Enter"){ e.preventDefault(); anadir(); }
+});
+}
+
+/* El texto tal cual lo escribió el médico, para irlo leyendo
+mientras se clasifica. Aquí nunca se edita: solo se muestra. */
+function tarjetaLectura(x){
+return '<article class="comentario" style="margin:0 0 8px">' +
+'<div class="comentario-meta">' +
+'<span class="fecha">' + fecha(x.fecha) + (x.pais ? " · " + escapar(nombrePais(x.pais)) : "") + '</span>' +
+(x.estrellas != null ? '<span class="nota">' + x.estrellas + ' ★</span>' : '') +
+'</div>' +
+'<p>' + escapar(x.tema) + '</p>' +
+(x.referencias ? '<p class="mini">Referencias que pide: ' + escapar(x.referencias) + '</p>' : '') +
+(x.comentario ? '<p class="mini">También comentó: ' + escapar(x.comentario) + '</p>' : '') +
+'</article>';
 }
 
 /* Reemplaza los temas de esas peticiones por los elegidos */
@@ -204,7 +306,7 @@ export function ventanaVerTema(tema, peticiones, recargar){
     const x = lista.filter(p => String(p.id) === b.dataset.id)[0];
     if (!x) return;
     if (b.dataset.accion === "reclasificar"){
-      ventanaClasificar({ nombre:x.tema, ids:[x.id], actuales:temaIdsDe(x), recargar:recargar });
+      ventanaClasificar({ peticiones:[x], ids:[x.id], actuales:temaIdsDe(x), recargar:recargar });
       return;
     }
     if (b.dataset.accion === "quitar") quitarDeTema([x.id], tema.id, recargar);
