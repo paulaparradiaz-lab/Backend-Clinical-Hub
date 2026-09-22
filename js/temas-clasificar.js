@@ -273,7 +273,7 @@ export function ventanaBorrarTema(tema, ids, recargar){
   const cuantas = (ids || []).length;
 
   const cuerpo = cuantas
-    ? '<p class="mini">Este tema tiene ' + plural(cuantas, "petición", "peticiones") +
+    ? '<p class="mini"><b>¿Seguro que quieres borrar este tema?</b> Este tema tiene ' + plural(cuantas, "petición", "peticiones") +
       '. Antes de borrarlo hay que decidir a dónde se mueven: no se pierde ninguna.</p>' +
       '<span class="etiqueta">Mover las peticiones a</span>' +
       '<select class="campo" id="b-destino">' +
@@ -282,13 +282,14 @@ export function ventanaBorrarTema(tema, ids, recargar){
       '</select>' +
       '<input class="campo" id="b-nuevo" placeholder="Nombre del tema nuevo">' +
       '<p class="mini">Si eliges un tema de la lista, deja el campo de abajo vacío.</p>'
-    : '<p class="mini">Este tema no tiene peticiones, se puede borrar sin mover nada.</p>';
+    : '<p class="mini"><b>¿Seguro que quieres borrar este tema?</b> No tiene peticiones, ' +
+      'así que se puede borrar sin mover nada.</p>';
 
   abrirVentana({
     titulo: "Borrar tema",
     guia: tema.nombre,
     cuerpo: cuerpo,
-    aceptar: "Borrar",
+    aceptar: cuantas ? "Sí, mover y borrar" : "Sí, borrar el tema",
     alAceptar: async () => {
       if (cuantas){
         let destino = leer("b-destino");
