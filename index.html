@@ -413,6 +413,14 @@ main{max-width:1040px;margin:0 auto;padding:30px 22px 64px}
 .ficha.limpiar{border-style:dashed;border-color:rgba(127,127,127,.55);background:transparent;opacity:.75}
 .ficha.limpiar:hover{opacity:1;background:rgba(127,127,127,.12)}
 select.filtrando{border-color:rgba(190,240,60,.6);box-shadow:inset 0 0 0 1px rgba(190,240,60,.35)}
+/* Subpestanas dentro de una pestana: Inbox / Ranking. Las dos pesan igual. */
+.subpestanas{display:flex;gap:6px;margin:20px 0 0;border-bottom:1px solid var(--border)}
+.subpestana{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--mono);font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);background:none;border:none;border-bottom:2px solid transparent;padding:13px 10px 11px;margin-bottom:-1px}
+.subpestana:hover{color:var(--ink)}
+.subpestana[aria-selected="true"]{color:var(--brand-ink);border-bottom-color:var(--brand)}
+.globo{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brand);color:var(--on-brand);font-family:var(--sans);font-size:11.5px;font-weight:800;letter-spacing:0;line-height:1}
+.resumen-sub{margin:14px 0 0;font-size:13.5px;color:var(--muted)}
+.resumen-sub b{color:var(--ink);font-weight:700}
 @media (prefers-reduced-motion: reduce){.lineas .aura,.chispas i{animation:none;opacity:.6}}
 
 @media (max-width:760px){
