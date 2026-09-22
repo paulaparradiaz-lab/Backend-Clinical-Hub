@@ -166,6 +166,15 @@ $("#pestanas").addEventListener("click", e => {
   if (b) abrirSeccion(b.dataset.seccion);
 });
 
+/* Salto de una pestana a otra desde dentro del panel. Lo usa el ranking
+   de Temas pedidos para llevarte a la mejora de ese tema: manda la
+   seccion a abrir y, si hace falta, el id de lo que hay que resaltar. */
+document.addEventListener("ch-ir", e => {
+  const d = (e && e.detail) || {};
+  if (d.foco) estado.foco = d.foco;
+  if (d.seccion) abrirSeccion(d.seccion);
+});
+
 /* ============================================================
    3. Menú de usuario, tema y contraseña
    ============================================================ */
