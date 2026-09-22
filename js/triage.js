@@ -147,3 +147,92 @@ if (recargar) await recargar();
 const sel = document.getElementById("m-accion");
 sel.addEventListener("change", () => { document.getElementById("m-nueva").hidden = !!sel.value; });
 }
+
+
+/* ============================================================
+4. Categorizar reseñas (una o varias de una vez)
+El inbox de Reseñas manda con esto: mientras una reseña con
+comentario no tenga categoría, sigue ahí. Al ponerle categoría
+también queda marcada como revisada, así "revisado" y
+"categorizado" no son dos cuentas distintas.
+============================================================ */
+export const DESCARTE = "sin_sentido";
+
+async function ponerEtiquetas(lista, claves){
+const nuevas = [];
+lista.forEach(x => {
+const ya = x.etiquetas || [];
+claves.forEach(c => {
+if (ya.indexOf(c) === -1) nuevas.push({ feedback_id:x.id, etiqueta:c,
+creado_por: estado.usuario && estado.usuario.id });
+});
+});
+if (nuevas.length){
+const r = await sb.from("feedback_etiquetas").insert(nuevas);
+if (r.error) throw r.error;
+}
+const porRevisar = lista.filter(x => !x.revisado).map(x => x.id);
+if (porRevisar.length){
+const t = await sb.from("feedback_triage").upsert(porRevisar.map(id => ({
+feedback_id: id,
+revisado: true,
+revisado_por: estado.usuario && estado.usuario.id,
+revisado_en: new Date().toISOString()
+})), { onConflict:"feedback_id" });
+if (t.error) throw t.error;
+}
+}
+
+/* Si es una sola, las categorías que ya tenía vienen marcadas y se
+pueden quitar. Si son varias, lo marcado se suma y no se le quita
+nada a ninguna. */
+export function ventanaCategoria(lista, recargar){
+const una = lista.length === 1;
+const actuales = una ? (lista[0].etiquetas || []) : [];
+const cuerpo = '<div class="opciones">' + estado.etiquetas.map(e =>
+'<label class="opcion"><input type="checkbox" value="' + e.clave + '"' +
+(actuales.indexOf(e.clave) > -1 ? " checked" : "") + '>' +
+'<span><b>' + escapar(e.nombre) + '</b><br><span class="mini">' +
+escapar(e.descripcion || "") + '</span></span></label>').join("") + '</div>' +
+(una ? '' : '<p class="mini">Se le pone a las ' + lista.length +
+' reseñas elegidas. Lo que ya tuvieran se conserva.</p>');
+
+abrirVentana({
+titulo: una ? "Categorizar" : "Categorizar " + lista.length + " reseñas",
+guia: una ? rotulo(lista[0]) : "",
+cuerpo: cuerpo,
+aceptar: una ? "Guardar categoría" : "Categorizar las " + lista.length,
+ancha: true,
+alAceptar: async () => {
+const marcadas = Array.from(document.querySelectorAll(".forma input:checked")).map(i => i.value);
+if (!marcadas.length){
+avisar("Elige al menos una categoría.", "mal", "#aviso-forma");
+return false;
+}
+if (una){
+const quitar = actuales.filter(c => marcadas.indexOf(c) === -1);
+if (quitar.length){
+const r = await sb.from("feedback_etiquetas").delete()
+.eq("feedback_id", lista[0].id).in("etiqueta", quitar);
+if (r.error) throw r.error;
+}
+}
+await ponerEtiquetas(lista, marcadas);
+if (recargar) await recargar();
+}
+});
+}
+
+/* Descartar no borra nada: le pone la categoría "sin sentido", que es
+la que ya existe para lo que no aporta. Se deshace reetiquetando
+desde la lista del ranking. */
+export async function descartarResenas(lista, recargar){
+if (!lista.length) return;
+try { await ponerEtiquetas(lista, [DESCARTE]); }
+catch (err){
+avisar("No se pudo descartar. Intenta de nuevo.", "mal", "#aviso-panel");
+return;
+}
+avisar("", "", "#aviso-panel");
+if (recargar) await recargar();
+}
