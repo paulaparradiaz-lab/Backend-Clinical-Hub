@@ -115,9 +115,14 @@ function enfocar(){
   if (!id) return;
   const el = document.querySelector('#acciones article.accion[data-id="' + id + '"]');
   if (!el) return;
-  el.scrollIntoView({ behavior:"smooth", block:"center" });
   el.classList.add("resaltada");
-  setTimeout(() => el.classList.remove("resaltada"), 2800);
+  setTimeout(() => {
+    const r = el.getBoundingClientRect();
+    const alto = Math.max(0, (window.innerHeight - r.height) / 2);
+    const y = window.scrollY + r.top - Math.max(90, alto);
+    window.scrollTo({ top: Math.max(0, y), behavior:"smooth" });
+  }, 80);
+  setTimeout(() => el.classList.remove("resaltada"), 3400);
 }
 
 /* ============================================================
