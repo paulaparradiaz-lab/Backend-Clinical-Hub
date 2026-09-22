@@ -4,7 +4,7 @@
    lo cambiamos, quién lo hizo y qué pasó con las notas después.
    Lee public.v_hoja_de_vida y public.v_tareas_detalle.
    ============================================================ */
-import { sb, $, estado, escapar, fecha, fechaCorta, num, dec, pct, avisar,
+import { sb, $, estado, escapar, fechaCorta, num, dec, pct, avisar,
          abrirVentana, leer, opcionesEquipo, opciones, cargarCatalogos } from "./nucleo.js";
 
 let acciones = [];
