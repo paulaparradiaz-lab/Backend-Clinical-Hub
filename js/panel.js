@@ -5,19 +5,21 @@
    ============================================================ */
 import { sb, $, estado, escapar, avisar, ocupado, traducirError,
          cargarCatalogos, cerrarVentana } from "./nucleo.js";
-import * as feedback from "./feedback.js";
+import * as resenas from "./resenas.js";
+import * as temas from "./temas.js";
 import * as mejoras  from "./mejoras.js";
 
 /* Aquí crece el panel: añade una sección con su render y listo. */
 const SECCIONES = [
-  { id:"feedback",  nombre:"Feedback", render: feedback.render },
+  { id:"resenas", nombre:"Reseñas", render: resenas.render },
+{ id:"temas", nombre:"Temas pedidos", render: temas.render },
   { id:"mejoras",   nombre:"Mejoras",  render: mejoras.render },
   { id:"ventas",    nombre:"Ventas" },
   { id:"contenido", nombre:"Contenido" },
   { id:"admin",     nombre:"Administrativo" }
 ];
 
-let seccionActiva = "feedback";
+let seccionActiva = "resenas";
 let factorId = null;
 
 /* ============================================================
