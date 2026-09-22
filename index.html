@@ -421,6 +421,19 @@ select.filtrando{border-color:rgba(190,240,60,.6);box-shadow:inset 0 0 0 1px rgb
 .globo{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--brand);color:var(--on-brand);font-family:var(--sans);font-size:11.5px;font-weight:800;letter-spacing:0;line-height:1}
 .resumen-sub{margin:14px 0 0;font-size:13.5px;color:var(--muted)}
 .resumen-sub b{color:var(--ink);font-weight:700}
+/* Iconos de lapiz y caneca al lado del nombre del tema en el ranking */
+.icono-btn{display:inline-grid;place-items:center;width:26px;height:26px;padding:0;border-radius:8px;border:1px solid transparent;background:none;color:var(--faint);vertical-align:middle;flex:none}
+.icono-btn:hover{border-color:var(--border2);color:var(--ink)}
+.icono-btn.peligro:hover{border-color:var(--warn);color:var(--warn)}
+.icono-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tema-nombre{display:inline-flex;align-items:center;gap:4px;font-weight:600}
+
+/* "8 formas de decirlo" subrayado: el texto mismo abre los comentarios */
+.enlace-formas{display:inline-block;margin:4px 0 0;padding:0;background:none;border:none;font-size:12.5px;color:var(--faint);text-decoration:underline;text-underline-offset:3px}
+.enlace-formas:hover{color:var(--brand-ink)}
+
+/* Mejora a la que se salta desde el ranking de temas */
+.accion.resaltada{border-color:var(--brand-line);box-shadow:0 0 0 3px var(--brand-bg)}
 @media (prefers-reduced-motion: reduce){.lineas .aura,.chispas i{animation:none;opacity:.6}}
 
 @media (max-width:760px){
