@@ -84,11 +84,11 @@ function armazon(){
 
   <div class="rejilla">
     <section class="caja">
-      <span class="etiqueta">Temas etiquetados</span>
+      <span class="etiqueta">Tipo de problema</span><span class="mini">Lo clasificas tú al etiquetar</span>
       <div id="etiquetas-top"></div>
     </section>
     <section class="caja">
-      <span class="etiqueta">Lo que están pidiendo</span>
+      <span class="etiqueta">Temas que están pidiendo</span>
       <div id="duele"></div>
     </section>
   </div>
@@ -384,6 +384,7 @@ function pintarTendencia(lista){
 
 function pintarEtiquetas(lista){
   const mapa = new Map();
+  const clasificados = lista.filter(x => (x.etiquetas || []).length).length;
   lista.forEach(x => (x.etiquetas || []).forEach(e => {
     const o = mapa.get(e) || { clave:e, n:0, suma:0, con:0, criticos:0, accionados:0 };
     o.n++;
@@ -393,7 +394,7 @@ function pintarEtiquetas(lista){
   }));
   const top = Array.from(mapa.values()).sort((a, b) => b.n - a.n).slice(0, 10);
   if (!top.length){
-    $("#etiquetas-top").innerHTML = '<p class="vacio">Todavía nadie ha etiquetado comentarios en este periodo. Empieza por los críticos.</p>';
+    $("#etiquetas-top").innerHTML = '<p class="vacio">Ningún comentario clasificado en este periodo. Empieza por los críticos.</p>';
     return;
   }
   const tope = top[0].n;
@@ -403,7 +404,8 @@ function pintarEtiquetas(lista){
       '<span class="barra"><span style="width:' + (t.n / tope * 100) + '%;background:' + (t.criticos > t.n / 2 ? "var(--s1)" : "var(--brand)") + '"></span></span>' +
       '<span class="fila-num tabular"><b>' + t.n + '</b> · ' + (t.con ? (t.suma / t.con).toFixed(1) + "★" : "—") + '</span>' +
     '</div>').join("") +
-    '<p class="mini">Clic en un tema para filtrar. La barra roja avisa que la mayoría son críticos.</p>';
+    '<p class="mini">' + num(clasificados) + ' de ' + num(lista.length) +
+    ' comentarios clasificados. Clic en un motivo para filtrar; la barra roja avisa que la mayoría son críticos.</p>';
 }
 
 function pintarDuele(lista){
