@@ -219,7 +219,7 @@ function tarjetaVer(x, tema){
   const otros = nombresDe(x).filter(n => n !== tema.nombre);
   return '<article class="comentario" style="margin-bottom:10px">' +
     '<div class="comentario-meta">' +
-    '<span class="fecha">' + fecha(x.fecha) + (x.pais ? " · " + escapar(String(x.pais)) : "") + '</span>' +
+    '<span class="fecha">' + fecha(x.fecha) + (x.pais ? " · " + escapar(nombrePais(x.pais)) : "") + '</span>' +
     (x.estrellas != null ? '<span class="nota">' + x.estrellas + ' ★</span>' : '') +
     '</div>' +
     '<p>' + escapar(x.tema) + '</p>' +
@@ -315,6 +315,16 @@ export function ventanaBorrarTema(tema, ids, recargar){
 /* ============================================================
    6. Ayudas
    ============================================================ */
+const PAISES = { CO:"Colombia", MX:"México", PE:"Perú", ES:"España", CL:"Chile", EC:"Ecuador",
+  PA:"Panamá", US:"Estados Unidos", AR:"Argentina", BO:"Bolivia", BR:"Brasil", CR:"Costa Rica",
+  DO:"República Dominicana", GT:"Guatemala", HN:"Honduras", NI:"Nicaragua", PY:"Paraguay",
+  SV:"El Salvador", UY:"Uruguay", VE:"Venezuela" };
+
+function nombrePais(c){
+  const k = String(c || "").toUpperCase();
+  return PAISES[k] || k;
+}
+
 function marcado(id){
   const e = document.getElementById(id);
   return !!(e && e.checked);
