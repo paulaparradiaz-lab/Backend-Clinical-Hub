@@ -3,14 +3,15 @@
    Demanda de contenido: qué guías están pidiendo los médicos.
    Lee public.v_temas_pedidos, que reúne en una sola lista todas
    las peticiones de tema, sin importar desde dónde se escribieron.
-   Aquí no hay promedio de estrellas porque no se mide satisfacción
-   sino cuánta gente pide lo mismo.
+   Se actúa siempre sobre el TEMA, desde el ranking: una mejora
+   queda enlazada a todas las peticiones de ese tema. La lista de
+   abajo es solo para leer qué dijo cada médico.
    ============================================================ */
-import { sb, $, estado, escapar, fecha, num, pct, avisar,
-         nombreEtiqueta } from "./nucleo.js";
-import { alternarRevisado, ventanaEtiquetas, ventanaMejora } from "./triage.js";
+import { sb, $, escapar, fecha, num, pct } from "./nucleo.js";
+import { ventanaMejoraTema, revisarTema } from "./temas-triage.js";
 
 let filas = [];
+let cubiertos = new Set();
 const f = { dias:90, foco:"todas", pais:"", texto:"", tema:"", temaNombre:"" };
 
 const RANGOS = [["7","1 semana"], ["30","1 mes"], ["90","90 días"], ["365","12 meses"], ["0","Histórico"]];
@@ -56,7 +57,7 @@ function armazon(){
 <section class="caja">
   <div class="fila-entre">
     <span class="etiqueta">Ranking de temas</span>
-    <span class="mini">Clic en una fila para ver abajo quién lo pidió</span>
+    <span class="mini">Aquí se actúa: la mejora y el revisado se aplican al tema completo</span>
   </div>
   <div id="ranking"></div>
 </section>
@@ -77,6 +78,7 @@ function armazon(){
     <span class="etiqueta">Peticiones · una por una</span>
     <span class="mini" id="cuenta"></span>
   </div>
+  <p class="mini">Solo lectura: lo que escribió cada médico, tal cual. Las acciones están arriba, en el ranking.</p>
   <div id="peticiones"><p class="vacio">Cargando…</p></div>
 </section>
 `;
@@ -92,8 +94,9 @@ function conectar(){
   $("#f-pais").addEventListener("change", e => { f.pais = e.target.value; pintar(); });
   $("#f-texto").addEventListener("input", e => { f.texto = e.target.value.trim().toLowerCase(); pintar(); });
   $("#btn-recargar").addEventListener("click", () => cargar());
-  $("#peticiones").addEventListener("click", alClic);
   $("#ranking").addEventListener("click", e => {
+    const bt = e.target.closest("button[data-tema-accion]");
+    if (bt){ e.stopPropagation(); accionDeTema(bt); return; }
     const fila = e.target.closest("[data-tema]");
     if (!fila) return;
     f.tema = (f.tema === fila.dataset.tema) ? "" : fila.dataset.tema;
@@ -139,6 +142,10 @@ function pintarPaises(){
 
 /* ============================================================
    3. Datos
+   Un tema se considera cubierto si CUALQUIERA de sus peticiones
+   ya está enlazada a una mejora. Así, si mañana entra una
+   petición nueva del mismo tema, nace ya cubierta y no vuelve a
+   aparecer como pendiente falsa.
    ============================================================ */
 async function cargar(){
   const { data, error } = await sb.from("v_temas_pedidos").select("*").order("fecha", { ascending:false });
@@ -147,8 +154,27 @@ async function cargar(){
     return;
   }
   filas = data || [];
+  recalcularCubiertos();
   pintarPaises();
   pintar();
+}
+
+function recalcularCubiertos(){
+  cubiertos = new Set();
+  filas.forEach(x => { if (x.accionado && x.tema_clave) cubiertos.add(x.tema_clave); });
+}
+
+function conMejora(x){
+  return !!x.accionado || cubiertos.has(x.tema_clave);
+}
+
+function peticionesDelTema(clave){
+  return filas.filter(x => x.tema_clave === clave);
+}
+
+function temaTodoRevisado(clave){
+  const todas = peticionesDelTema(clave);
+  return todas.length > 0 && todas.every(x => x.revisado);
 }
 
 function desdeHasta(atras){
@@ -171,8 +197,8 @@ function filtradas(omitir){
   return base(0).filter(x => {
     if (f.pais && x.pais !== f.pais) return false;
     if (omitir !== "tema" && f.tema && x.tema_clave !== f.tema) return false;
-    if (f.foco === "sin_accion" && x.accionado) return false;
-    if (f.foco === "con_accion" && !x.accionado) return false;
+    if (f.foco === "sin_accion" && conMejora(x)) return false;
+    if (f.foco === "con_accion" && !conMejora(x)) return false;
     if (f.foco === "sin_revisar" && x.revisado) return false;
     if (f.texto){
       const saco = [x.tema, x.referencias, x.comentario, x.pais].join(" ").toLowerCase();
@@ -183,7 +209,22 @@ function filtradas(omitir){
 }
 
 /* ============================================================
-   4. Pintado
+   4. Acciones sobre el tema (desde el ranking)
+   ============================================================ */
+function accionDeTema(bt){
+  const clave = bt.dataset.clave;
+  const delTema = peticionesDelTema(clave);
+  const ids = delTema.map(x => x.id);
+  if (!ids.length) return;
+  if (bt.dataset.temaAccion === "mejora"){
+    ventanaMejoraTema(bt.dataset.nombre || clave, ids, cargar);
+    return;
+  }
+  revisarTema(ids, !delTema.every(x => x.revisado), bt, cargar);
+}
+
+/* ============================================================
+   5. Pintado
    ============================================================ */
 function pintar(){
   const lista = filtradas();
@@ -207,12 +248,13 @@ function agrupar(lista){
   lista.forEach(x => {
     if (!x.tema_clave) return;
     const o = mapa.get(x.tema_clave) || { clave:x.tema_clave, nombres:new Map(), n:0,
-      paises:new Set(), refs:new Set(), accionados:0, sinRevisar:0 };
+      paises:new Set(), refs:new Set(), ids:[], accionados:0, sinRevisar:0 };
     o.n++;
+    o.ids.push(x.id);
     o.nombres.set(x.tema, (o.nombres.get(x.tema) || 0) + 1);
     if (x.pais) o.paises.add(x.pais);
     if (x.referencias) o.refs.add(x.referencias);
-    if (x.accionado) o.accionados++;
+    if (conMejora(x)) o.accionados++;
     if (!x.revisado) o.sinRevisar++;
     mapa.set(x.tema_clave, o);
   });
@@ -236,7 +278,7 @@ function pintarKpis(lista){
   }
   const top = grupos[0];
   const sinRevisar = lista.filter(x => !x.revisado).length;
-  const accionados = lista.filter(x => x.accionado).length;
+  const conAccion = lista.filter(conMejora).length;
   const repetidos = grupos.filter(o => o.n > 1).length;
 
   $("#kpis").innerHTML =
@@ -244,7 +286,7 @@ function pintarKpis(lista){
     tarjeta(num(grupos.length), "Temas distintos", repetidos ? num(repetidos) + " pedidos más de una vez" : "ninguno repetido") +
     tarjeta(top ? num(top.n) : "—", "Tema más pedido", top ? escapar(corto(top.nombre, 42)) : "sin datos") +
     tarjeta(num(sinRevisar), "Sin revisar", pct(sinRevisar, lista.length) + "% de las peticiones") +
-    tarjeta(pct(accionados, lista.length) + "%", "Ya con mejora", num(accionados) + " de " + num(lista.length));
+    tarjeta(pct(conAccion, lista.length) + "%", "Ya con mejora", num(conAccion) + " de " + num(lista.length));
 }
 
 function pintarRanking(lista){
@@ -253,29 +295,39 @@ function pintarRanking(lista){
   const clinicos = grupos.filter(o => !o.plataforma).slice(0, 15);
   const plataforma = grupos.filter(o => o.plataforma).slice(0, 8);
 
-  const tabla = (filas, titulo) => {
-    if (!filas.length) return '';
+  const tabla = (grupo, titulo) => {
+    if (!grupo.length) return '';
     return (titulo ? '<span class="etiqueta sub">' + titulo + '</span>' : '') +
       '<table class="tabla"><thead><tr><th>Tema</th><th>Piden</th><th>Países</th>' +
-      '<th>Referencias que piden</th><th>Estado</th></tr></thead><tbody>' +
-      filas.map(o => {
-        const estado = o.accionados
+      '<th>Referencias que piden</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>' +
+      grupo.map(o => {
+        const cubierto = cubiertos.has(o.clave);
+        const marca = cubierto
           ? '<span class="etq lima">con mejora</span>'
           : (o.n > 1 ? '<span class="etq alerta">sin tocar</span>' : '<span class="mini">sin tocar</span>');
         const refs = Array.from(o.refs).join(" / ");
+        const botones =
+          '<button class="boton-chico" data-tema-accion="mejora" data-clave="' + escapar(o.clave) +
+          '" data-nombre="' + escapar(o.nombre) + '">' +
+          (cubierto ? "Enlazar mejora" : "Crear mejora") + '</button>' +
+          '<button class="boton-chico" data-tema-accion="revisar" data-clave="' + escapar(o.clave) + '">' +
+          (temaTodoRevisado(o.clave) ? "Quitar revisado" : "Marcar revisado") + '</button>';
         return '<tr class="pinchable' + (f.tema === o.clave ? ' activa' : '') + '" data-tema="' + escapar(o.clave) +
           '" data-nombre="' + escapar(o.nombre) + '" role="button" tabindex="0">' +
-          '<td>' + escapar(corto(o.nombre, 80)) + '</td>' +
+          '<td>' + escapar(corto(o.nombre, 70)) + '</td>' +
           '<td class="tabular"><b>' + o.n + '</b></td>' +
           '<td class="tabular">' + o.paises.size + '</td>' +
-          '<td><span class="mini">' + (refs ? escapar(corto(refs, 60)) : "—") + '</span></td>' +
-          '<td>' + estado + '</td></tr>';
+          '<td><span class="mini">' + (refs ? escapar(corto(refs, 44)) : "—") + '</span></td>' +
+          '<td>' + marca + '</td>' +
+          '<td>' + botones + '</td></tr>';
       }).join("") + '</tbody></table>';
   };
 
   $("#ranking").innerHTML = tabla(clinicos, "") + tabla(plataforma, "Sobre la plataforma") +
-    '<p class="mini">Ordenado por cuánta gente pide lo mismo. Las referencias son las guías que el médico ' +
-    'quiere que se citen, no son temas aparte.</p>';
+    '<p class="mini">Ordenado por cuánta gente pide lo mismo. La mejora y el revisado se aplican a todas ' +
+    'las peticiones del tema. Si un tema es otra forma de decir algo que ya trabajaste, usa “Enlazar mejora” ' +
+    'y elige la mejora que ya existe. Las referencias son las guías que el médico quiere que se citen, ' +
+    'no son temas aparte.</p>';
 }
 
 function pintarTendencia(lista){
@@ -311,6 +363,7 @@ function pintarMapaPaises(lista){
     '<p class="mini">Dónde está la demanda. Sirve para priorizar guías por país.</p>';
 }
 
+/* Lista de solo lectura: aquí no hay botones, solo lo que dijeron */
 function pintarPeticiones(lista){
   const orden = lista.slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
   $("#cuenta").textContent = lista.length === filas.length
@@ -324,35 +377,17 @@ function pintarPeticiones(lista){
 }
 
 function tarjetaPeticion(x){
-  const etqs = (x.etiquetas || []).map(e => '<span class="etq">' + escapar(nombreEtiqueta(e)) + '</span>').join("");
   return '<article class="comentario">' +
     '<div class="comentario-meta">' +
     '<span class="fecha">' + fecha(x.fecha) + (x.pais ? " · " + escapar(nombrePais(x.pais)) : "") + '</span>' +
     (x.estrellas != null ? '<span class="nota">' + x.estrellas + ' ★</span>' : '') +
     (x.revisado ? '<span class="etq ok">revisado</span>' : '') +
-    (x.accionado ? '<span class="etq lima">con mejora</span>' : '') +
+    (conMejora(x) ? '<span class="etq lima">con mejora</span>' : '') +
     '</div>' +
     '<p>' + escapar(x.tema) + '</p>' +
     (x.referencias ? '<p class="mini">Referencias que pide: ' + escapar(x.referencias) + '</p>' : '') +
     (x.comentario ? '<p class="mini">También comentó: ' + escapar(x.comentario) + '</p>' : '') +
-    '<div class="comentario-pie">' + etqs +
-    '<button class="boton-chico" data-accion="etiquetar" data-id="' + x.id + '">Etiquetar</button>' +
-    '<button class="boton-chico" data-accion="revisar" data-id="' + x.id + '">' + (x.revisado ? "Quitar revisado" : "Marcar revisado") + '</button>' +
-    '<button class="boton-chico" data-accion="mejora" data-id="' + x.id + '">Convertir en mejora</button>' +
-    '</div></article>';
-}
-
-/* ============================================================
-   5. Acciones sobre una petición
-   ============================================================ */
-function alClic(e){
-  const b = e.target.closest("button[data-accion]");
-  if (!b) return;
-  const x = filas.find(r => r.id === b.dataset.id);
-  if (!x) return;
-  if (b.dataset.accion === "etiquetar") ventanaEtiquetas(x, cargar);
-  if (b.dataset.accion === "revisar") alternarRevisado(x, b, cargar);
-  if (b.dataset.accion === "mejora") ventanaMejora(x, cargar);
+    '</article>';
 }
 
 /* ============================================================
