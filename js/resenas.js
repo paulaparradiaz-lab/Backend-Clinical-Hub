@@ -1,30 +1,51 @@
 /* ============================================================
-CLINICAL HUB · PESTAÑA RESEÑAS
-Satisfacción: lo que los médicos califican y comentan.
-Lee public.v_resenas, que trae solo las filas con estrella o con
-comentario escrito de verdad. Las peticiones de temas ya no viven
-aquí: tienen su propia pestaña, Temas pedidos.
-============================================================ */
-import { sb, $, estado, COLORES, escapar, fecha, num, pct, avisar,
-nombreEtiqueta } from "./nucleo.js";
-import { alternarRevisado, ventanaEtiquetas, ventanaMejora } from "./triage.js";
+   CLINICAL HUB · PESTAÑA RESEÑAS
+   Satisfacción: lo que los médicos califican y comentan.
+
+   La pestaña tiene dos subpestañas del mismo peso, igual que
+   Temas pedidos:
+
+   INBOX    Las reseñas con comentario que todavía no tienen
+            categoría. Histórico completo, sin filtros de fuente
+            ni de periodo: solo categorizar o descartar. El
+            globito de la subpestaña dice cuántas faltan, como
+            los mensajes sin leer del teléfono.
+   RANKING  El reflejo de todo lo ya categorizado: promedio,
+            reparto de estrellas, mes a mes, tipo de problema,
+            por dónde llegan y la lista completa de reseñas con
+            los filtros de siempre.
+
+   Lee public.v_resenas, que trae solo las filas con estrella o
+   con comentario escrito de verdad. Las peticiones de temas ya
+   no viven aquí: tienen su propia pestaña, Temas pedidos.
+   ============================================================ */
+import { sb, $, estado, COLORES, escapar, fecha, num, pct,
+  nombreEtiqueta } from "./nucleo.js";
+import { alternarRevisado, ventanaMejora, ventanaCategoria,
+  descartarResenas } from "./triage.js";
 
 let filas = [];
+let seleccion = new Set();
+let visibles = [];
+let qInbox = "";
+let vista = "ranking";
 const f = { canal:"todos", dias:90, foco:"todos", etiqueta:"", pais:"", texto:"", notas:[] };
 
 const CANALES = [["todos","Todo"], ["web","Sitio web"], ["whatsapp","WhatsApp"]];
 const RANGOS = [["7","1 semana"], ["30","1 mes"], ["90","90 días"], ["365","12 meses"], ["0","Histórico"]];
 const FOCOS = [["todos","Todas"], ["texto","Con comentario"], ["criticos","Críticos 1–2"],
-["sin_revisar","Sin revisar"], ["sin_accion","Sin mejora"]];
+  ["sin_categoria","Sin categoría"], ["sin_accion","Sin mejora"]];
 const NOTAS = [["","Todas"], ["5","5 ★"], ["4","4 ★"], ["3","3 ★"], ["2","2 ★"], ["1","1 ★"], ["0","Sin nota"]];
 
 const GRUPOS = [{ clave:"promotor", nombre:"Promotores 4–5 ★", notas:["5","4"], color:5 },
-{ clave:"neutro", nombre:"Neutros 3 ★", notas:["3"], color:3 },
-{ clave:"detractor", nombre:"Detractores 1–2 ★", notas:["2","1"], color:1 }];
+  { clave:"neutro", nombre:"Neutros 3 ★", notas:["3"], color:3 },
+  { clave:"detractor", nombre:"Detractores 1–2 ★", notas:["2","1"], color:1 }];
+
+const DESCARTE = "sin_sentido";
 
 /* ============================================================
-1. Armazón de la pestaña
-============================================================ */
+   1. Armazón de la pestaña
+   ============================================================ */
 export async function render(){
 $("#vista").innerHTML = armazon();
 conectar();
@@ -41,6 +62,32 @@ return `
 <button class="boton-chico" id="btn-recargar">Actualizar</button>
 </div>
 
+<p class="aviso" id="aviso-panel" role="status"></p>
+
+<div class="subpestanas" id="subpestanas" role="tablist" aria-label="Secciones de reseñas">
+<button class="subpestana" role="tab" data-sub="inbox" id="sub-inbox"
+aria-selected="false" aria-controls="panel-inbox">Inbox
+<span class="globo" id="globo-inbox" hidden>0</span></button>
+<button class="subpestana" role="tab" data-sub="ranking" id="sub-ranking"
+aria-selected="true" aria-controls="panel-ranking">Ranking</button>
+</div>
+
+<section id="panel-inbox" role="tabpanel" aria-labelledby="sub-inbox" hidden>
+<p class="resumen-sub" id="resumen-inbox"></p>
+<section class="caja" style="margin-top:14px">
+<span class="etiqueta">Nuevas por categorizar</span>
+<p class="mini">Cada reseña llega tal cual la escribió el médico. Ponle la categoría que
+explique de qué habla, o descártala si no dice nada aprovechable. En cuanto la categorizas
+desaparece del inbox y empieza a sumar en el ranking. Aquí está todo el histórico, sin
+filtros de fuente ni de periodo: nada se pierde hasta que lo toques. El buscador solo sirve
+para encontrar y agrupar: no esconde nada del histórico.</p>
+<input class="campo" id="q-inbox" placeholder="Buscar en el inbox: dosis, lento, interfaz…">
+<div id="barra-bandeja"></div>
+<div id="bandeja"><p class="vacio">Cargando…</p></div>
+</section>
+</section>
+
+<section id="panel-ranking" role="tabpanel" aria-labelledby="sub-ranking" hidden>
 <div class="filtros-fila">
 <span class="rotulo">Fuente</span>
 <div class="filtros" id="f-canal" role="group" aria-label="Fuente"></div>
@@ -56,14 +103,12 @@ return `
 <div class="filtros-fila">
 <span class="rotulo">Filtros</span>
 <div class="filtros" id="f-foco" role="group" aria-label="Foco"></div>
-<select class="campo compacto" id="f-etiqueta" aria-label="Etiqueta"></select>
+<select class="campo compacto" id="f-etiqueta" aria-label="Categoría"></select>
 <select class="campo compacto" id="f-pais" aria-label="País"></select>
 <input class="campo compacto buscador" id="f-texto" type="search" placeholder="Buscar en los comentarios…">
 </div>
 
 <div class="activos" id="activos" hidden></div>
-
-<p class="aviso" id="aviso-panel" role="status"></p>
 
 <div class="tarjetas" id="kpis"></div>
 
@@ -81,7 +126,7 @@ return `
 
 <div class="rejilla">
 <section class="caja">
-<span class="etiqueta">Tipo de problema</span><span class="mini">Lo clasificas tú al etiquetar</span>
+<span class="etiqueta">Tipo de problema</span><span class="mini">La categoría que tú le pusiste en el inbox</span>
 <div id="etiquetas-top"></div>
 </section>
 <section class="caja">
@@ -97,16 +142,25 @@ return `
 </div>
 <div id="comentarios"><p class="vacio">Cargando…</p></div>
 </section>
+</section>
 `;
 }
 
 /* ============================================================
-2. Filtros
-============================================================ */
+   2. Filtros y subpestañas
+   ============================================================ */
 function conectar(){
 pintarChips();
-$("#f-etiqueta").innerHTML = '<option value="">Todas las etiquetas</option>' +
+pintarSubpestanas();
+$("#f-etiqueta").innerHTML = '<option value="">Todas las categorías</option>' +
 estado.etiquetas.map(e => '<option value="' + e.clave + '">' + escapar(e.nombre) + '</option>').join("");
+
+$("#subpestanas").addEventListener("click", e => {
+const b = e.target.closest("button[data-sub]");
+if (!b || b.dataset.sub === vista) return;
+vista = b.dataset.sub;
+pintarSubpestanas();
+});
 
 $("#f-canal").addEventListener("click", e => elegir(e, "canal"));
 $("#f-rango").addEventListener("click", e => elegir(e, "dias"));
@@ -131,6 +185,11 @@ f.etiqueta = (f.etiqueta === b.dataset.etiqueta) ? "" : b.dataset.etiqueta;
 $("#f-etiqueta").value = f.etiqueta;
 pintar();
 });
+
+$("#panel-inbox").addEventListener("input", e => {
+if (e.target && e.target.id === "q-inbox"){ qInbox = e.target.value || ""; pintarInbox(); }
+});
+$("#panel-inbox").addEventListener("click", alClicInbox);
 }
 
 function elegir(e, campo){
@@ -153,6 +212,21 @@ $(donde).innerHTML = lista.map(par =>
 escapar(par[1]) + '</button>').join("");
 }
 
+function pintarSubpestanas(){
+const enInbox = vista === "inbox";
+$("#sub-inbox").setAttribute("aria-selected", String(enInbox));
+$("#sub-ranking").setAttribute("aria-selected", String(!enInbox));
+$("#panel-inbox").hidden = !enInbox;
+$("#panel-ranking").hidden = enInbox;
+}
+
+function pintarGlobo(n){
+const g = $("#globo-inbox");
+if (!g) return;
+g.hidden = !n;
+g.textContent = n > 99 ? "99+" : String(n);
+}
+
 function pintarPaises(){
 const sel = $("#f-pais");
 if (!sel) return;
@@ -165,15 +239,20 @@ sel.value = f.pais;
 }
 
 /* ============================================================
-3. Datos
-============================================================ */
+   3. Datos
+   El inbox no filtra nada: mira el histórico completo. Los
+   filtros de fuente y periodo son solo del ranking.
+   ============================================================ */
 async function cargar(){
 const { data, error } = await sb.from("v_resenas").select("*").order("fecha", { ascending:false });
 if (error){
-$("#comentarios").innerHTML = '<p class="vacio">No se pudieron leer las reseñas. ' + escapar(error.message) + '</p>';
+const aviso = '<p class="vacio">No se pudieron leer las reseñas. ' + escapar(error.message) + '</p>';
+$("#comentarios").innerHTML = aviso;
+$("#bandeja").innerHTML = aviso;
 return;
 }
 filas = data || [];
+seleccion = new Set();
 pintarPaises();
 pintar();
 }
@@ -204,7 +283,7 @@ if (omitir !== "notas" && f.notas.length){ const k = x.estrellas == null ? "0" :
 if (f.etiqueta && (x.etiquetas || []).indexOf(f.etiqueta) === -1) return false;
 if (f.foco === "texto" && !x.comentario) return false;
 if (f.foco === "criticos" && !(x.estrellas != null && x.estrellas <= 2)) return false;
-if (f.foco === "sin_revisar" && (x.revisado || !x.comentario)) return false;
+if (f.foco === "sin_categoria" && (!x.comentario || (x.etiquetas || []).length)) return false;
 if (f.foco === "sin_accion" && (x.accionado || !x.comentario)) return false;
 if (f.texto){
 const saco = [x.comentario, x.tema_pedido, x.referencias, x.pais].join(" ").toLowerCase();
@@ -218,9 +297,23 @@ const conNota = lista => lista.filter(x => x.estrellas != null);
 const promedio = lista => conNota(lista).length
 ? conNota(lista).reduce((a, x) => a + x.estrellas, 0) / conNota(lista).length : null;
 
+/* Una reseña sin comentario no entra al inbox: no hay nada que
+   categorizar, solo cuenta para el promedio y el reparto. */
+function pendientes(){
+return filas.filter(x => x.comentario && !(x.etiquetas || []).length);
+}
+
+function categorizadas(){
+return filas.filter(x => x.comentario && (x.etiquetas || []).length);
+}
+
+function descartadas(){
+return categorizadas().filter(x => x.etiquetas.length === 1 && x.etiquetas[0] === DESCARTE);
+}
+
 /* ============================================================
-4. Pintado
-============================================================ */
+   4. Pintado del ranking
+   ============================================================ */
 function pintar(){
 const lista = filtradas();
 pintarNotas(filtradas("notas"));
@@ -232,6 +325,8 @@ pintarEtiquetas(lista);
 pintarFuentes(lista);
 pintarComentarios(lista);
 pintarActivos();
+pintarInbox();
+pintarSubpestanas();
 }
 
 function tarjeta(cifra, etiqueta, extra, lima){
@@ -252,7 +347,7 @@ delta = '<span class="delta ' + (d >= 0 ? "sube" : "baja") + '">' + signo + " " 
 }
 const criticos = notas.filter(x => x.estrellas <= 2).length;
 const conTexto = lista.filter(x => x.comentario);
-const sinRevisar = conTexto.filter(x => !x.revisado).length;
+const sinCategoria = conTexto.filter(x => !(x.etiquetas || []).length).length;
 const accionados = conTexto.filter(x => x.accionado).length;
 
 $("#kpis").innerHTML =
@@ -260,7 +355,7 @@ tarjeta(prom == null ? "—" : prom.toFixed(2), "Promedio", delta, true) +
 tarjeta(num(notas.length), "Calificaciones", num(lista.length) + " reseñas en total") +
 tarjeta(num(criticos), "Críticos 1–2", pct(criticos, notas.length) + "% de las notas") +
 tarjeta(num(conTexto.length), "Con comentario", pct(conTexto.length, lista.length) + "% escribió algo") +
-tarjeta(num(sinRevisar), "Sin revisar", sinRevisar ? "de " + num(conTexto.length) + " con comentario" : "todo al día") +
+tarjeta(num(sinCategoria), "Sin categoría", sinCategoria ? "de " + num(conTexto.length) + " con comentario" : "todo al día") +
 tarjeta(pct(accionados, conTexto.length) + "%", "Accionabilidad", num(accionados) + " de " + num(conTexto.length) + " con comentario");
 }
 
@@ -401,7 +496,7 @@ mapa.set(e, o);
 }));
 const top = Array.from(mapa.values()).sort((a, b) => b.n - a.n).slice(0, 10);
 if (!top.length){
-$("#etiquetas-top").innerHTML = '<p class="vacio">Ninguna reseña clasificada en este periodo. Empieza por las críticas.</p>';
+$("#etiquetas-top").innerHTML = '<p class="vacio">Ninguna reseña categorizada en este periodo. Empieza por el inbox.</p>';
 return;
 }
 const tope = top[0].n;
@@ -412,7 +507,7 @@ $("#etiquetas-top").innerHTML = top.map(t =>
 '<span class="fila-num tabular"><b>' + t.n + '</b> · ' + (t.con ? (t.suma / t.con).toFixed(1) + "★" : "—") + '</span>' +
 '</div>').join("") +
 '<p class="mini">' + num(clasificados) + ' de ' + num(lista.length) +
-' reseñas clasificadas. Clic en un motivo para filtrar; la barra roja avisa que la mayoría son críticas.</p>';
+' reseñas categorizadas. Clic en un motivo para filtrar; la barra roja avisa que la mayoría son críticas.</p>';
 }
 
 function pintarComentarios(lista){
@@ -442,28 +537,156 @@ return '<article class="comentario" style="border-left-color:' + (COLORES[x.estr
 (x.tema_pedido ? '<p class="mini">Además pidió un tema: ' + escapar(x.tema_pedido) +
 (x.referencias ? ' · referencias: ' + escapar(x.referencias) : '') + '</p>' : '') +
 '<div class="comentario-pie">' + etqs +
-'<button class="boton-chico" data-accion="etiquetar" data-id="' + x.id + '">Etiquetar</button>' +
+(x.comentario ? '<button class="boton-chico" data-accion="categorizar" data-id="' + x.id + '">Categorizar</button>' : '') +
 '<button class="boton-chico" data-accion="revisar" data-id="' + x.id + '">' + (x.revisado ? "Quitar revisado" : "Marcar revisado") + '</button>' +
 '<button class="boton-chico" data-accion="mejora" data-id="' + x.id + '">Convertir en mejora</button>' +
 '</div></article>';
 }
 
 /* ============================================================
-5. Acciones sobre una reseña
-============================================================ */
+   5. Inbox: lo que falta categorizar
+   Sin periodo y sin filtros: aquí está el histórico completo de
+   reseñas con comentario y sin categoría. En cuanto le pones una
+   categoría sale del inbox y aparece en el ranking.
+   ============================================================ */
+function pintarInbox(){
+const pend = pendientes().slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+pintarGlobo(pend.length);
+
+const q = qInbox.trim().toLowerCase();
+const vistas = q ? pend.filter(x => coincide(x, q)) : pend;
+visibles = vistas.map(x => String(x.id));
+
+const res = $("#resumen-inbox");
+if (res) res.innerHTML = (pend.length
+? "<b>" + num(pend.length) + "</b> " +
+(pend.length === 1 ? "reseña esperando categoría" : "reseñas esperando categoría")
+: "Todo categorizado: no queda ninguna reseña sin categoría") +
+" · <b>" + num(categorizadas().length - descartadas().length) + "</b> ya categorizadas" +
+(descartadas().length ? " · " + num(descartadas().length) +
+(descartadas().length === 1 ? " descartada" : " descartadas") : "") +
+(q ? " · buscando “" + escapar(qInbox.trim()) + "”: <b>" + num(vistas.length) + "</b>" +
+(vistas.length === 1 ? " coincide" : " coinciden") : "");
+
+if (!pend.length){
+$("#bandeja").innerHTML = '<p class="vacio">Inbox vacío: no queda ninguna reseña sin categoría.</p>';
+pintarBarraBandeja();
+return;
+}
+$("#bandeja").innerHTML = vistas.length
+? vistas.map(tarjetaPendiente).join("")
+: '<p class="vacio">Ninguna reseña del inbox dice eso. Prueba con otra palabra o borra la búsqueda.</p>';
+pintarBarraBandeja();
+}
+
+/* El buscador no esconde histórico ni cambia el globito: solo sirve
+   para juntar rápido las que hablan de lo mismo y mandarlas de una
+   a la misma categoría. */
+function coincide(x, q){
+return (String(x.comentario || "") + " " + String(x.tema_pedido || "") + " " +
+String(x.referencias || "") + " " + nombrePais(x.pais)).toLowerCase().indexOf(q) > -1;
+}
+
+function tarjetaPendiente(x){
+const id = escapar(String(x.id));
+return '<article class="comentario" style="border-left-color:' + (COLORES[x.estrellas] || "var(--border2)") + '">' +
+'<div class="comentario-meta">' +
+'<label class="mini"><input type="checkbox" data-sel-pend="' + id + '"' +
+(seleccion.has(String(x.id)) ? " checked" : "") + '> elegir</label>' +
+'<span class="nota">' + (x.estrellas ? x.estrellas + " ★" : "sin nota") + '</span>' +
+'<span class="canal">' + (x.canal === "whatsapp" ? "WhatsApp" : "Web") + '</span>' +
+'<span class="fecha">' + fecha(x.fecha) + (x.pais ? " · " + escapar(nombrePais(x.pais)) : "") + '</span>' +
+'</div>' +
+'<p>' + escapar(x.comentario) + '</p>' +
+(x.tema_pedido ? '<p class="mini">Además pidió un tema: ' + escapar(x.tema_pedido) +
+(x.referencias ? ' · referencias: ' + escapar(x.referencias) : '') + '</p>' : '') +
+'<div class="fila-entre" style="margin:11px 0 0">' +
+'<span class="mini">Sin categoría todavía</span>' +
+'<span><button class="boton-chico" data-pend-accion="categorizar" data-id="' + id + '">Categorizar</button> ' +
+'<button class="boton-chico" data-pend-accion="descartar" data-id="' + id + '">Descartar</button></span>' +
+'</div></article>';
+}
+
+function pintarBarraBandeja(){
+const caja = $("#barra-bandeja");
+if (!caja) return;
+const n = seleccion.size;
+const v = visibles.length;
+if (!n && !v){ caja.innerHTML = ""; return; }
+const izq = n
+? '<b>' + n + '</b> ' + (n === 1 ? "reseña elegida" : "reseñas elegidas") +
+' · van juntas a la misma categoría'
+: 'Marca varias y se van juntas a la misma categoría';
+caja.innerHTML = '<div class="fila-entre" style="margin:12px 0 10px">' +
+'<span class="mini">' + izq + '</span><span>' +
+(v ? '<button class="boton-chico" id="btn-sel-todas">Elegir las ' + v + ' que se ven</button> ' : '') +
+(n ? '<button class="boton-chico" id="btn-cat-sel">Categorizar juntas</button> ' +
+'<button class="boton-chico" id="btn-desc-sel">Descartar</button> ' +
+'<button class="boton-chico" id="btn-sel-nada">Quitar selección</button>' : '') +
+'</span></div>';
+}
+
+function alClicInbox(e){
+const cb = e.target.closest("input[data-sel-pend]");
+if (cb){
+if (cb.checked) seleccion.add(cb.dataset.selPend); else seleccion.delete(cb.dataset.selPend);
+pintarBarraBandeja();
+return;
+}
+if (e.target.closest("#btn-sel-todas")){
+visibles.forEach(id => seleccion.add(id));
+pintarInbox();
+return;
+}
+if (e.target.closest("#btn-cat-sel")){ categorizarSeleccion(); return; }
+if (e.target.closest("#btn-desc-sel")){ descartarSeleccion(); return; }
+if (e.target.closest("#btn-sel-nada")){
+seleccion = new Set();
+Array.prototype.forEach.call(document.querySelectorAll("#bandeja input[data-sel-pend]"),
+i => { i.checked = false; });
+pintarBarraBandeja();
+return;
+}
+const bt = e.target.closest("button[data-pend-accion]");
+if (!bt) return;
+const x = filas.filter(r => String(r.id) === bt.dataset.id)[0];
+if (!x) return;
+if (bt.dataset.pendAccion === "categorizar"){ ventanaCategoria([x], cargar); return; }
+if (bt.dataset.pendAccion === "descartar") descartarResenas([x], cargar);
+}
+
+function elegidas(){
+return filas.filter(x => seleccion.has(String(x.id)));
+}
+
+function categorizarSeleccion(){
+const lista = elegidas();
+if (!lista.length) return;
+ventanaCategoria(lista, cargar);
+}
+
+function descartarSeleccion(){
+const lista = elegidas();
+if (!lista.length) return;
+descartarResenas(lista, cargar);
+}
+
+/* ============================================================
+   6. Acciones sobre una reseña de la lista del ranking
+   ============================================================ */
 function alClic(e){
 const b = e.target.closest("button[data-accion]");
 if (!b) return;
 const x = filas.find(r => r.id === b.dataset.id);
 if (!x) return;
-if (b.dataset.accion === "etiquetar") ventanaEtiquetas(x, cargar);
+if (b.dataset.accion === "categorizar") ventanaCategoria([x], cargar);
 if (b.dataset.accion === "revisar") alternarRevisado(x, b, cargar);
 if (b.dataset.accion === "mejora") ventanaMejora(x, cargar);
 }
 
 /* ============================================================
-6. Filtro por calificación (chips y barras del reparto)
-============================================================ */
+   7. Filtro por calificación (chips y barras del reparto)
+   ============================================================ */
 function rotuloDe(lista, v){
 const par = lista.find(x => String(x[0]) === String(v));
 return par ? par[1] : String(v);
@@ -475,7 +698,7 @@ if (f.canal !== "todos") out.push({ campo:"canal", valor:"", txt:"Fuente: " + ro
 if (f.foco !== "todos") out.push({ campo:"foco", valor:"", txt:rotuloDe(FOCOS, f.foco) });
 f.notas.slice().sort().reverse().forEach(n =>
 out.push({ campo:"nota", valor:n, txt:"Reseña: " + rotuloDe(NOTAS, n) }));
-if (f.etiqueta) out.push({ campo:"etiqueta", valor:"", txt:"Etiqueta: " + nombreEtiqueta(f.etiqueta) });
+if (f.etiqueta) out.push({ campo:"etiqueta", valor:"", txt:"Categoría: " + nombreEtiqueta(f.etiqueta) });
 if (f.pais) out.push({ campo:"pais", valor:"", txt:"País: " + nombrePais(f.pais) });
 if (f.texto) out.push({ campo:"texto", valor:"", txt:"Busca: " + f.texto });
 return out;
@@ -552,12 +775,12 @@ par[1] + ' <b class="tabular">' + n + '</b></button>';
 }
 
 /* ============================================================
-7. Ayudas de presentación
-============================================================ */
+   8. Ayudas de presentación
+   ============================================================ */
 const PAISES = { CO:"Colombia", MX:"México", PE:"Perú", ES:"España", CL:"Chile", EC:"Ecuador",
-PA:"Panamá", US:"Estados Unidos", AR:"Argentina", BO:"Bolivia", BR:"Brasil", CR:"Costa Rica",
-DO:"República Dominicana", GT:"Guatemala", HN:"Honduras", NI:"Nicaragua", PY:"Paraguay",
-SV:"El Salvador", UY:"Uruguay", VE:"Venezuela" };
+  PA:"Panamá", US:"Estados Unidos", AR:"Argentina", BO:"Bolivia", BR:"Brasil", CR:"Costa Rica",
+  DO:"República Dominicana", GT:"Guatemala", HN:"Honduras", NI:"Nicaragua", PY:"Paraguay",
+  SV:"El Salvador", UY:"Uruguay", VE:"Venezuela" };
 
 function nombrePais(c){
 const k = String(c || "").toUpperCase();
