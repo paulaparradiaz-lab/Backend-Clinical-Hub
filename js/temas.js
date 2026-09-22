@@ -112,11 +112,16 @@ function conectar(){
     const cb = e.target.closest("input[data-sel]");
     if (cb){
       if (cb.checked) seleccion.add(cb.dataset.sel); else seleccion.delete(cb.dataset.sel);
-      pintarRanking(filtradas("tema"));
+      pintarBarraUnion();
       return;
     }
     if (e.target.closest("#btn-unir")){ unirSeleccion(); return; }
-    if (e.target.closest("#btn-sel-nada")){ seleccion = new Set(); pintarRanking(filtradas("tema")); return; }
+    if (e.target.closest("#btn-sel-nada")){
+      seleccion = new Set();
+      Array.prototype.forEach.call(document.querySelectorAll("#ranking input[data-sel]"), i => { i.checked = false; });
+      pintarBarraUnion();
+      return;
+    }
     if (e.target.closest("#btn-ver-todos")){ verTodos = !verTodos; pintar(); return; }
     const bt = e.target.closest("button[data-tema-accion]");
     if (bt){ e.stopPropagation(); accionDeTema(bt); return; }
@@ -394,14 +399,6 @@ function pintarRanking(lista){
   const visibles = verTodos ? grupos : grupos.slice(0, TOPE);
   const ocultos = grupos.length - visibles.length;
 
-  const barra = seleccion.size
-    ? '<div class="fila-entre" style="margin-bottom:10px">' +
-      '<span class="mini"><b>' + seleccion.size + '</b> ' +
-      (seleccion.size === 1 ? "tema seleccionado" : "temas seleccionados · se unen en uno solo") + '</span>' +
-      '<span><button class="boton-chico" id="btn-unir">Unir en un tema</button> ' +
-      '<button class="boton-chico" id="btn-sel-nada">Quitar selección</button></span></div>'
-    : '';
-
   const cuerpo = visibles.map(o => {
     const cubierto = cubiertos.has(o.clave);
     const marca = cubierto
@@ -435,7 +432,7 @@ function pintarRanking(lista){
       (verTodos ? "Ver solo los 10 más pedidos" : "Ver todos los temas (" + grupos.length + ")") + '</button>'
     : '';
 
-  $("#ranking").innerHTML = barra +
+  $("#ranking").innerHTML = '<div id="barra-union"></div>' +
     '<table class="tabla"><thead><tr><th></th><th>Tema</th><th>Piden</th><th>Países</th>' +
     '<th>Referencias que piden</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>' +
     cuerpo + '</tbody></table>' + alterna +
@@ -446,6 +443,23 @@ function pintarRanking(lista){
     'se juntan en uno solo y las que lleguen después escritas igual caerán ahí solas. La mejora y el ' +
     'revisado se aplican a todas las peticiones del tema. Las referencias son las guías que el médico ' +
     'quiere que se citen, no son temas aparte.</p>';
+
+  pintarBarraUnion();
+}
+
+/* Barra que aparece al marcar filas del ranking */
+function pintarBarraUnion(){
+  const caja = document.getElementById("barra-union");
+  if (!caja) return;
+  const vivas = gruposActuales.filter(o => seleccion.has(o.clave)).length;
+  if (!vivas){ caja.innerHTML = ""; caja.className = ""; return; }
+  caja.className = "fila-entre";
+  caja.style.marginBottom = "10px";
+  caja.innerHTML =
+    '<span class="mini"><b>' + vivas + '</b> ' +
+    (vivas === 1 ? "tema seleccionado" : "temas seleccionados · se unen en uno solo") + '</span>' +
+    '<span><button class="boton-chico" id="btn-unir">Unir en un tema</button> ' +
+    '<button class="boton-chico" id="btn-sel-nada">Quitar selección</button></span>';
 }
 
 function pintarTendencia(lista){
