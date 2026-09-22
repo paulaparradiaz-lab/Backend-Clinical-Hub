@@ -26,6 +26,8 @@ import { cargarClasificacion, ventanaClasificar, ventanaVerTema, ventanaRenombra
 let filas = [];
 let descartadas = 0;
 let cubiertos = new Set();
+let enlaces = new Map();   // peticion -> mejora a la que esta enlazada
+let mejoraDe = new Map();  // tema -> mejora del tema
 let seleccion = new Set();
 let verTodos = false;
 let vista = "ranking";
@@ -33,6 +35,12 @@ const f = { foco:"todas" };
 
 const FOCOS = [["todas","Todos"], ["sin_accion","Sin mejora"], ["con_accion","Con mejora"]];
 const TOPE = 10;
+
+/* Iconos del ranking: el lapiz renombra, la caneca borra */
+const LAPIZ = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18 10l-4-4L4 16v4z"/>' +
+  '<path d="M13.5 6.5l4 4"/></svg>';
+const CANECA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M10 4h4"/>' +
+  '<path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg>';
 
 /* ============================================================
    1. Armazón de la pestaña
@@ -187,7 +195,15 @@ function pintarGlobo(n){
    cubierto si cualquiera de sus peticiones ya tiene mejora.
 ============================================================ */
 async function cargar(){
-  const { data, error } = await sb.from("v_temas_pedidos").select("*").order("fecha", { ascending:false });
+  const [v, af] = await Promise.all([
+    sb.from("v_temas_pedidos").select("*").order("fecha", { ascending:false }),
+    sb.from("accion_feedback").select("accion_id,feedback_id")
+  ]);
+  const data = v.data, error = v.error;
+  enlaces = new Map();
+  ((af && af.data) || []).forEach(r => {
+    if (!enlaces.has(r.feedback_id)) enlaces.set(r.feedback_id, r.accion_id);
+  });
   if (error){
     $("#bandeja").innerHTML = '<p class="vacio">No se pudieron leer las peticiones. ' +
       escapar(error.message) + '</p>';
@@ -204,7 +220,15 @@ async function cargar(){
 
 function recalcularCubiertos(){
   cubiertos = new Set();
-  filas.forEach(x => { if (x.accionado) temaIdsDe(x).forEach(id => cubiertos.add(id)); });
+  mejoraDe = new Map();
+  filas.forEach(x => {
+    const acc = enlaces.get(x.id);
+    if (!x.accionado && !acc) return;
+    temaIdsDe(x).forEach(id => {
+      cubiertos.add(id);
+      if (acc && !mejoraDe.has(id)) mejoraDe.set(id, acc);
+    });
+  });
 }
 
 function conMejora(x){
@@ -276,8 +300,19 @@ function accionDeTema(bt){
   if (!tema) return;
   const ids = peticionesDelTema(temaId).map(x => x.id);
   if (bt.dataset.temaAccion === "mejora"){ ventanaMejoraTema(tema.nombre, ids, cargar); return; }
+  if (bt.dataset.temaAccion === "vermejora"){ irAMejora(temaId, tema, ids); return; }
   if (bt.dataset.temaAccion === "renombrar"){ ventanaRenombrar(tema, cargar); return; }
   if (bt.dataset.temaAccion === "borrar"){ ventanaBorrarTema(tema, ids, cargar); return; }
+}
+
+/* Si el tema ya tiene mejora, el boton lleva a la pestana Mejoras y la
+   resalta. Si por lo que sea no se encuentra, abre la ventana de crearla. */
+function irAMejora(temaId, tema, ids){
+  const accionId = mejoraDe.get(temaId);
+  if (!accionId){ ventanaMejoraTema(tema.nombre, ids, cargar); return; }
+  document.dispatchEvent(new CustomEvent("ch-ir", {
+    detail: { seccion:"mejoras", foco: accionId }
+  }));
 }
 
 function pintar(){
@@ -380,16 +415,22 @@ function pintarRanking(){
       : '<span class="etq alerta">sin mejora</span>';
     const refs = Array.from(o.refs).join(" / ");
     const formas = o.claves.size;
-    const lupa = '<span class="mini">' +
-      (formas > 1 ? formas + " formas de decirlo" : (o.n > 1 ? o.n + " comentarios" : "1 comentario")) +
-      '</span> <button class="boton-chico" data-ver="' + escapar(o.id) + '">Ver</button>';
-    const botones =
-      '<button class="boton-chico" data-tema-accion="mejora" data-clave="' + escapar(o.id) + '">' +
-      (cubierto ? "Enlazar mejora" : "Crear mejora") + '</button>' +
-      '<button class="boton-chico" data-tema-accion="renombrar" data-clave="' + escapar(o.id) + '">Renombrar</button>' +
-      '<button class="boton-chico" data-tema-accion="borrar" data-clave="' + escapar(o.id) + '">Borrar</button>';
+    const textoFormas = formas > 1 ? formas + " formas de decirlo"
+      : (o.n > 1 ? o.n + " comentarios" : "1 comentario");
+    const enlace = '<button class="enlace-formas" data-ver="' + escapar(o.id) +
+      '" title="Ver los comentarios reales de este tema">' + textoFormas + '</button>';
+    const iconos =
+      '<button class="icono-btn" data-tema-accion="renombrar" data-clave="' + escapar(o.id) +
+      '" title="Renombrar tema" aria-label="Renombrar tema">' + LAPIZ + '</button>' +
+      '<button class="icono-btn peligro" data-tema-accion="borrar" data-clave="' + escapar(o.id) +
+      '" title="Borrar tema" aria-label="Borrar tema">' + CANECA + '</button>';
+    const botones = (cubierto && mejoraDe.get(o.id))
+      ? '<button class="boton-chico" data-tema-accion="vermejora" data-clave="' + escapar(o.id) +
+        '">Ver mejora</button>'
+      : '<button class="boton-chico" data-tema-accion="mejora" data-clave="' + escapar(o.id) +
+        '">Crear mejora</button>';
     return '<tr>' +
-      '<td>' + escapar(corto(o.nombre, 60)) + '<br>' + lupa + '</td>' +
+      '<td><span class="tema-nombre">' + escapar(corto(o.nombre, 60)) + iconos + '</span><br>' + enlace + '</td>' +
       '<td class="tabular"><b>' + o.n + '</b></td>' +
       '<td class="tabular">' + o.paises.size + '</td>' +
       '<td><span class="mini">' + (refs ? escapar(corto(refs, 44)) : "—") + '</span></td>' +
@@ -408,7 +449,9 @@ function pintarRanking(){
     cuerpo + '</tbody></table>' + alterna +
     '<p class="mini">Solo aparecen los temas que tú creaste' +
     (ocultos > 0 ? ' · se muestran los ' + TOPE + ' más pedidos de ' + grupos.length : '') +
-    '. “Ver” abre los comentarios reales de ese tema y desde ahí puedes reclasificar cualquiera. ' +
+    '. El texto subrayado abre los comentarios reales de ese tema y desde ahí puedes ' +
+    'reclasificar cualquiera. El lápiz renombra el tema y la caneca lo borra, moviendo antes ' +
+    'sus peticiones a donde tú digas. ' +
     'La mejora se enlaza a todas las peticiones del tema. Las referencias son las guías que el médico ' +
     'quiere que se citen, no son temas aparte.</p>';
 }
