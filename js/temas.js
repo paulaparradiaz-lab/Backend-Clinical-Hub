@@ -29,6 +29,8 @@ let cubiertos = new Set();
 let enlaces = new Map();   // peticion -> mejora a la que esta enlazada
 let mejoraDe = new Map();  // tema -> mejora del tema
 let seleccion = new Set();
+let visibles = [];
+let qInbox = "";
 let verTodos = false;
 let vista = "ranking";
 const f = { foco:"todas" };
@@ -75,8 +77,10 @@ function armazon(){
     <span class="etiqueta">Nuevos por clasificar</span>
     <p class="mini">Cada petición llega tal cual la escribió el médico. Mándala a uno o a varios
     de tus temas, o descártala si no es un tema. En cuanto la clasificas desaparece del inbox y
-    empieza a sumar en el ranking. Aquí está todo el histórico: nada se pierde hasta que lo toques.</p>
-    <div id="barra-bandeja"></div>
+    empieza a sumar en el ranking. Aquí está todo el histórico: nada se pierde hasta que lo toques.
+El buscador solo sirve para encontrar y agrupar: no esconde nada del histórico.</p>
+    <input class="campo" id="q-inbox" placeholder="Buscar en el inbox: shock, dengue, guía…">
+<div id="barra-bandeja"></div>
     <div id="bandeja"><p class="vacio">Cargando…</p></div>
   </section>
 </section>
@@ -130,14 +134,23 @@ function conectar(){
     pintarRanking();
   });
 
-  $("#panel-inbox").addEventListener("click", e => {
+  $("#panel-inbox").addEventListener("input", e => {
+if (e.target && e.target.id === "q-inbox"){ qInbox = e.target.value || ""; pintarInbox(); }
+});
+
+$("#panel-inbox").addEventListener("click", e => {
     const cb = e.target.closest("input[data-sel-pend]");
     if (cb){
       if (cb.checked) seleccion.add(cb.dataset.selPend); else seleccion.delete(cb.dataset.selPend);
       pintarBarraBandeja();
       return;
     }
-    if (e.target.closest("#btn-clas-sel")){ clasificarSeleccion(); return; }
+    if (e.target.closest("#btn-sel-todas")){
+visibles.forEach(id => seleccion.add(id));
+pintarInbox();
+return;
+}
+if (e.target.closest("#btn-clas-sel")){ clasificarSeleccion(); return; }
     if (e.target.closest("#btn-desc-sel")){ descartarSeleccion(); return; }
     if (e.target.closest("#btn-sel-nada")){
       seleccion = new Set();
@@ -151,7 +164,7 @@ function conectar(){
     const x = filas.filter(p => String(p.id) === bt.dataset.id)[0];
     if (!x) return;
     if (bt.dataset.pendAccion === "clasificar"){
-      ventanaClasificar({ nombre:x.tema, ids:[x.id], actuales:temaIdsDe(x), recargar:cargar });
+      ventanaClasificar({ peticiones:[x], ids:[x.id], actuales:temaIdsDe(x), recargar:cargar });
       return;
     }
     if (bt.dataset.pendAccion === "descartar") descartarPeticiones([x.id], cargar);
@@ -273,9 +286,8 @@ function agrupar(){
 function clasificarSeleccion(){
   const ids = Array.from(seleccion);
   if (!ids.length) return;
-  const primera = filas.filter(p => String(p.id) === ids[0])[0];
-  ventanaClasificar({
-    nombre: ids.length === 1 && primera ? primera.tema : ids.length + " peticiones del inbox",
+    ventanaClasificar({
+    peticiones: filas.filter(p => seleccion.has(String(p.id))),
     ids: ids,
     actuales: [],
     recargar: cargar
@@ -327,62 +339,83 @@ function pintar(){
    5. Inbox
 ============================================================ */
 function pintarInbox(){
-  const pend = pendientes().slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-  pintarGlobo(pend.length);
+const pend = pendientes().slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+pintarGlobo(pend.length);
 
-  const res = $("#resumen-inbox");
-  if (res) res.innerHTML = (pend.length
-    ? "<b>" + num(pend.length) + "</b> " +
-      (pend.length === 1 ? "petición esperando tema" : "peticiones esperando tema")
-    : "Todo clasificado: no queda ninguna petición sin tema") +
-    " · <b>" + num(clasificadas().length) + "</b> ya clasificadas" +
-    (descartadas ? " · " + num(descartadas) +
-      (descartadas === 1 ? " descartada" : " descartadas") : "");
+const q = qInbox.trim().toLowerCase();
+const vistas = q ? pend.filter(x => coincide(x, q)) : pend;
+visibles = vistas.map(x => String(x.id));
 
-  if (!pend.length){
-    $("#bandeja").innerHTML = '<p class="vacio">Inbox vacío: no queda ninguna petición sin tema.</p>';
-    pintarBarraBandeja();
-    return;
-  }
-  $("#bandeja").innerHTML = pend.map(tarjetaPendiente).join("");
-  pintarBarraBandeja();
+const res = $("#resumen-inbox");
+if (res) res.innerHTML = (pend.length
+? "<b>" + num(pend.length) + "</b> " +
+(pend.length === 1 ? "petición esperando tema" : "peticiones esperando tema")
+: "Todo clasificado: no queda ninguna petición sin tema") +
+" · <b>" + num(clasificadas().length) + "</b> ya clasificadas" +
+(descartadas ? " · " + num(descartadas) +
+(descartadas === 1 ? " descartada" : " descartadas") : "") +
+(q ? " · buscando “" + escapar(qInbox.trim()) + "”: <b>" + num(vistas.length) + "</b>" +
+(vistas.length === 1 ? " coincide" : " coinciden") : "");
+
+if (!pend.length){
+$("#bandeja").innerHTML = '<p class="vacio">Inbox vacío: no queda ninguna petición sin tema.</p>';
+pintarBarraBandeja();
+return;
+}
+$("#bandeja").innerHTML = vistas.length
+? vistas.map(tarjetaPendiente).join("")
+: '<p class="vacio">Ninguna petición del inbox dice eso. Prueba con otra palabra o borra la búsqueda.</p>';
+pintarBarraBandeja();
+}
+
+/* El buscador no esconde histórico ni cambia el globito: solo sirve
+para juntar rápido las que hablan de lo mismo y mandarlas de una
+al mismo tema. */
+function coincide(x, q){
+return (String(x.tema || "") + " " + String(x.referencias || "") + " " +
+String(x.comentario || "") + " " + nombrePais(x.pais)).toLowerCase().indexOf(q) > -1;
 }
 
 function tarjetaPendiente(x){
-  const id = escapar(String(x.id));
-  return '<article class="comentario">' +
-    '<div class="comentario-meta">' +
-    '<label class="mini"><input type="checkbox" data-sel-pend="' + id + '"' +
-    (seleccion.has(String(x.id)) ? " checked" : "") + '> elegir</label>' +
-    '<span class="fecha">' + fecha(x.fecha) + (x.pais ? " · " + escapar(nombrePais(x.pais)) : "") + '</span>' +
-    (x.estrellas != null ? '<span class="nota">' + x.estrellas + ' ★</span>' : '') +
-    '</div>' +
-    '<p>' + escapar(x.tema) + '</p>' +
-    (x.referencias ? '<p class="mini">Referencias que pide: ' + escapar(x.referencias) + '</p>' : '') +
-    (x.comentario ? '<p class="mini">También comentó: ' + escapar(x.comentario) + '</p>' : '') +
-    '<div class="fila-entre" style="margin:11px 0 0">' +
-    '<span class="mini">Sin tema todavía</span>' +
-    '<span><button class="boton-chico" data-pend-accion="clasificar" data-id="' + id + '">Clasificar</button> ' +
-    '<button class="boton-chico" data-pend-accion="descartar" data-id="' + id + '">Descartar</button></span>' +
-    '</div></article>';
+const id = escapar(String(x.id));
+return '<article class="comentario">' +
+'<div class="comentario-meta">' +
+'<label class="mini"><input type="checkbox" data-sel-pend="' + id + '"' +
+(seleccion.has(String(x.id)) ? " checked" : "") + '> elegir</label>' +
+'<span class="fecha">' + fecha(x.fecha) + (x.pais ? " · " + escapar(nombrePais(x.pais)) : "") + '</span>' +
+(x.estrellas != null ? '<span class="nota">' + x.estrellas + ' ★</span>' : '') +
+'</div>' +
+'<p>' + escapar(x.tema) + '</p>' +
+(x.referencias ? '<p class="mini">Referencias que pide: ' + escapar(x.referencias) + '</p>' : '') +
+(x.comentario ? '<p class="mini">También comentó: ' + escapar(x.comentario) + '</p>' : '') +
+'<div class="fila-entre" style="margin:11px 0 0">' +
+'<span class="mini">Sin tema todavía</span>' +
+'<span><button class="boton-chico" data-pend-accion="clasificar" data-id="' + id + '">Clasificar</button> ' +
+'<button class="boton-chico" data-pend-accion="descartar" data-id="' + id + '">Descartar</button></span>' +
+'</div></article>';
 }
 
 function pintarBarraBandeja(){
-  const caja = $("#barra-bandeja");
-  if (!caja) return;
-  const n = seleccion.size;
-  caja.innerHTML = n
-    ? '<div class="fila-entre" style="margin:12px 0 10px">' +
-      '<span class="mini"><b>' + n + '</b> ' + (n === 1 ? "petición elegida" : "peticiones elegidas") +
-      ' · van juntas al mismo tema</span>' +
-      '<span><button class="boton-chico" id="btn-clas-sel">Clasificar juntas</button> ' +
-      '<button class="boton-chico" id="btn-desc-sel">Descartar</button> ' +
-      '<button class="boton-chico" id="btn-sel-nada">Quitar selección</button></span></div>'
-    : '';
+const caja = $("#barra-bandeja");
+if (!caja) return;
+const n = seleccion.size;
+const v = visibles.length;
+if (!n && !v){ caja.innerHTML = ""; return; }
+const izq = n
+? '<b>' + n + '</b> ' + (n === 1 ? "petición elegida" : "peticiones elegidas") +
+' · van juntas al mismo tema'
+: 'Marca varias y se van juntas al mismo tema';
+caja.innerHTML = '<div class="fila-entre" style="margin:12px 0 10px">' +
+'<span class="mini">' + izq + '</span><span>' +
+(v ? '<button class="boton-chico" id="btn-sel-todas">Elegir las ' + v + ' que se ven</button> ' : '') +
+(n ? '<button class="boton-chico" id="btn-clas-sel">Clasificar juntas</button> ' +
+'<button class="boton-chico" id="btn-desc-sel">Descartar</button> ' +
+'<button class="boton-chico" id="btn-sel-nada">Quitar selección</button>' : '') +
+'</span></div>';
 }
 
 /* ============================================================
-   6. Ranking de tus temas
+6. Ranking de tus temas
 ============================================================ */
 function pintarRanking(){
   const todos = agrupar();
