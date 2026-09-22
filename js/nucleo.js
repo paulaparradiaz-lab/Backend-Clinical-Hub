@@ -10,8 +10,7 @@ const SUPABASE_ANON = "sb_publishable_rnTlbtk9slMW9Oq2bKrdhg_EtOYRKjU";
 
 export const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-export const $  = s => document.querySelector(s);
-export const $$ = s => Array.from(document.querySelectorAll(s));
+export const $ = s => document.querySelector(s);
 
 export const COLORES = { 1:"var(--s1)", 2:"var(--s2)", 3:"var(--s3)", 4:"var(--s4)", 5:"var(--s5)" };
 
