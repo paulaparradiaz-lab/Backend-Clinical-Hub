@@ -25,11 +25,12 @@ let cubiertos = new Set();
 let gruposActuales = [];
 let seleccion = new Set();
 let verTodos = false;
-const f = { dias:90, foco:"todas", pais:"", texto:"", tema:"", temaNombre:"" };
+const f = { dias:90, foco:"todas", clas:"todas", pais:"", texto:"", tema:"", temaNombre:"" };
 
 const RANGOS = [["7","1 semana"], ["30","1 mes"], ["90","90 días"], ["365","12 meses"], ["0","Histórico"]];
 const FOCOS = [["todas","Todas"], ["sin_accion","Sin mejora"], ["con_accion","Ya con mejora"],
                ["sin_revisar","Sin revisar"]];
+const CLAS = [["todas","Todos"], ["si","Ya clasificados"], ["no","Sin clasificar"]];
 
 /* ============================================================
    1. Armazón de la pestaña
@@ -59,6 +60,11 @@ function armazon(){
       <div class="filtros" id="f-foco" role="group" aria-label="Foco"></div>
       <select class="campo compacto" id="f-pais" aria-label="País"></select>
       <input class="campo compacto buscador" id="f-texto" type="search" placeholder="Buscar un tema…">
+    </div>
+    <div class="filtros-fila">
+      <span class="rotulo">Clasificación</span>
+      <div class="filtros" id="f-clas" role="group" aria-label="Clasificación"></div>
+      <span class="mini" id="cuenta-clas"></span>
     </div>
 
     <div class="activos" id="activos" hidden></div>
@@ -105,6 +111,7 @@ function conectar(){
   pintarChips();
   $("#f-rango").addEventListener("click", e => elegir(e, "dias"));
   $("#f-foco").addEventListener("click", e => elegir(e, "foco"));
+  $("#f-clas").addEventListener("click", e => elegir(e, "clas"));
   $("#f-pais").addEventListener("change", e => { f.pais = e.target.value; pintar(); });
   $("#f-texto").addEventListener("input", e => { f.texto = e.target.value.trim().toLowerCase(); pintar(); });
   $("#btn-recargar").addEventListener("click", () => cargar());
@@ -163,6 +170,7 @@ function elegir(e, campo){
 function pintarChips(){
   fila("#f-rango", RANGOS, String(f.dias));
   fila("#f-foco", FOCOS, f.foco);
+  fila("#f-clas", CLAS, f.clas);
 }
 
 function fila(donde, lista, activo){
@@ -251,6 +259,8 @@ function base(atras){
 function filtradas(omitir){
   return base(0).filter(x => {
     if (f.pais && x.pais !== f.pais) return false;
+    if (f.clas === "si" && !temaIdsDe(x).length) return false;
+    if (f.clas === "no" && temaIdsDe(x).length) return false;
     if (omitir !== "tema" && f.tema && clavesGrupo(x).indexOf(f.tema) === -1) return false;
     if (f.foco === "sin_accion" && conMejora(x)) return false;
     if (f.foco === "con_accion" && !conMejora(x)) return false;
@@ -325,6 +335,19 @@ function pintar(){
   pintarMapaPaises(lista);
   pintarPeticiones(lista);
   pintarActivos();
+  pintarCuentaClas();
+}
+
+/* Cuánto trabajo de clasificación llevas en este periodo */
+function pintarCuentaClas(){
+  const caja = $("#cuenta-clas");
+  if (!caja) return;
+  const enPeriodo = base(0);
+  const ya = enPeriodo.filter(x => temaIdsDe(x).length).length;
+  caja.textContent = enPeriodo.length
+    ? ya + " de " + enPeriodo.length + " peticiones ya están en un tema unificado" +
+      (descartadas ? " · " + descartadas + " descartadas" : "")
+    : "";
 }
 
 function tarjeta(cifra, etiqueta, extra, lima){
@@ -544,6 +567,7 @@ function pintarActivos(){
   if (selPais) selPais.classList.toggle("filtrando", !!f.pais);
   const out = [];
   if (f.foco !== "todas") out.push({ campo:"foco", txt:rotuloDe(FOCOS, f.foco) });
+  if (f.clas !== "todas") out.push({ campo:"clas", txt:rotuloDe(CLAS, f.clas) });
   if (f.pais) out.push({ campo:"pais", txt:"País: " + nombrePais(f.pais) });
   if (f.tema) out.push({ campo:"tema", txt:"Tema: " + corto(f.temaNombre || f.tema, 40) });
   if (f.texto) out.push({ campo:"texto", txt:"Busca: " + f.texto });
@@ -557,7 +581,7 @@ function pintarActivos(){
 
 function quitarFiltro(campo){
   if (campo === "todo"){
-    f.foco = "todas"; f.pais = ""; f.texto = ""; f.tema = ""; f.temaNombre = "";
+    f.foco = "todas"; f.clas = "todas"; f.pais = ""; f.texto = ""; f.tema = ""; f.temaNombre = "";
     $("#f-pais").value = "";
     $("#f-texto").value = "";
     pintarChips();
@@ -566,6 +590,7 @@ function quitarFiltro(campo){
   else if (campo === "texto"){ f.texto = ""; $("#f-texto").value = ""; }
   else if (campo === "tema"){ f.tema = ""; f.temaNombre = ""; }
   else if (campo === "foco"){ f.foco = "todas"; pintarChips(); }
+  else if (campo === "clas"){ f.clas = "todas"; pintarChips(); }
   pintar();
 }
 
