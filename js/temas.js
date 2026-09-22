@@ -12,6 +12,7 @@ import { ventanaMejoraTema, revisarTema } from "./temas-triage.js";
 
 let filas = [];
 let cubiertos = new Set();
+let verTodos = false;
 const f = { dias:90, foco:"todas", pais:"", texto:"", tema:"", temaNombre:"" };
 
 const RANGOS = [["7","1 semana"], ["30","1 mes"], ["90","90 días"], ["365","12 meses"], ["0","Histórico"]];
@@ -95,6 +96,7 @@ function conectar(){
   $("#f-texto").addEventListener("input", e => { f.texto = e.target.value.trim().toLowerCase(); pintar(); });
   $("#btn-recargar").addEventListener("click", () => cargar());
   $("#ranking").addEventListener("click", e => {
+    if (e.target.closest("#btn-ver-todos")){ verTodos = !verTodos; pintar(); return; }
     const bt = e.target.closest("button[data-tema-accion]");
     if (bt){ e.stopPropagation(); accionDeTema(bt); return; }
     const fila = e.target.closest("[data-tema]");
@@ -262,7 +264,6 @@ function agrupar(lista){
   todos.forEach(o => {
     o.nombre = Array.from(o.nombres.entries())
       .sort((a, b) => (b[1] - a[1]) || (puntajeNombre(b[0]) - puntajeNombre(a[0])) || (b[0].length - a[0].length))[0][0];
-    o.plataforma = esPlataforma(o.clave);
   });
   return todos.sort((a, b) => (b.n - a.n) || a.nombre.localeCompare(b.nombre));
 }
@@ -292,42 +293,48 @@ function pintarKpis(lista){
 function pintarRanking(lista){
   const grupos = agrupar(lista);
   if (!grupos.length){ $("#ranking").innerHTML = '<p class="vacio">Sin peticiones en este periodo.</p>'; return; }
-  const clinicos = grupos.filter(o => !o.plataforma).slice(0, 15);
-  const plataforma = grupos.filter(o => o.plataforma).slice(0, 8);
+  const TOPE = 10;
+  const visibles = verTodos ? grupos : grupos.slice(0, TOPE);
+  const ocultos = grupos.length - visibles.length;
 
-  const tabla = (grupo, titulo) => {
-    if (!grupo.length) return '';
-    return (titulo ? '<span class="etiqueta sub">' + titulo + '</span>' : '') +
-      '<table class="tabla"><thead><tr><th>Tema</th><th>Piden</th><th>Países</th>' +
-      '<th>Referencias que piden</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>' +
-      grupo.map(o => {
-        const cubierto = cubiertos.has(o.clave);
-        const marca = cubierto
-          ? '<span class="etq lima">con mejora</span>'
-          : (o.n > 1 ? '<span class="etq alerta">sin tocar</span>' : '<span class="mini">sin tocar</span>');
-        const refs = Array.from(o.refs).join(" / ");
-        const botones =
-          '<button class="boton-chico" data-tema-accion="mejora" data-clave="' + escapar(o.clave) +
-          '" data-nombre="' + escapar(o.nombre) + '">' +
-          (cubierto ? "Enlazar mejora" : "Crear mejora") + '</button>' +
-          '<button class="boton-chico" data-tema-accion="revisar" data-clave="' + escapar(o.clave) + '">' +
-          (temaTodoRevisado(o.clave) ? "Quitar revisado" : "Marcar revisado") + '</button>';
-        return '<tr class="pinchable' + (f.tema === o.clave ? ' activa' : '') + '" data-tema="' + escapar(o.clave) +
-          '" data-nombre="' + escapar(o.nombre) + '" role="button" tabindex="0">' +
-          '<td>' + escapar(corto(o.nombre, 70)) + '</td>' +
-          '<td class="tabular"><b>' + o.n + '</b></td>' +
-          '<td class="tabular">' + o.paises.size + '</td>' +
-          '<td><span class="mini">' + (refs ? escapar(corto(refs, 44)) : "—") + '</span></td>' +
-          '<td>' + marca + '</td>' +
-          '<td>' + botones + '</td></tr>';
-      }).join("") + '</tbody></table>';
-  };
+  const cuerpo = visibles.map(o => {
+    const cubierto = cubiertos.has(o.clave);
+    const marca = cubierto
+      ? '<span class="etq lima">con mejora</span>'
+      : (o.n > 1 ? '<span class="etq alerta">sin tocar</span>' : '<span class="mini">sin tocar</span>');
+    const refs = Array.from(o.refs).join(" / ");
+    const botones =
+      '<button class="boton-chico" data-tema-accion="mejora" data-clave="' + escapar(o.clave) +
+      '" data-nombre="' + escapar(o.nombre) + '">' +
+      (cubierto ? "Enlazar mejora" : "Crear mejora") + '</button>' +
+      '<button class="boton-chico" data-tema-accion="revisar" data-clave="' + escapar(o.clave) + '">' +
+      (temaTodoRevisado(o.clave) ? "Quitar revisado" : "Marcar revisado") + '</button>';
+    return '<tr class="pinchable' + (f.tema === o.clave ? ' activa' : '') + '" data-tema="' + escapar(o.clave) +
+      '" data-nombre="' + escapar(o.nombre) + '" role="button" tabindex="0">' +
+      '<td>' + escapar(corto(o.nombre, 70)) + '</td>' +
+      '<td class="tabular"><b>' + o.n + '</b></td>' +
+      '<td class="tabular">' + o.paises.size + '</td>' +
+      '<td><span class="mini">' + (refs ? escapar(corto(refs, 44)) : "—") + '</span></td>' +
+      '<td>' + marca + '</td>' +
+      '<td>' + botones + '</td></tr>';
+  }).join("");
 
-  $("#ranking").innerHTML = tabla(clinicos, "") + tabla(plataforma, "Sobre la plataforma") +
-    '<p class="mini">Ordenado por cuánta gente pide lo mismo. La mejora y el revisado se aplican a todas ' +
-    'las peticiones del tema. Si un tema es otra forma de decir algo que ya trabajaste, usa “Enlazar mejora” ' +
-    'y elige la mejora que ya existe. Las referencias son las guías que el médico quiere que se citen, ' +
-    'no son temas aparte.</p>';
+  const alterna = (grupos.length > TOPE || verTodos)
+    ? '<button class="boton-chico" id="btn-ver-todos">' +
+      (verTodos ? "Ver solo los 10 más pedidos" : "Ver todos los temas (" + grupos.length + ")") +
+      '</button>'
+    : '';
+
+  $("#ranking").innerHTML =
+    '<table class="tabla"><thead><tr><th>Tema</th><th>Piden</th><th>Países</th>' +
+    '<th>Referencias que piden</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>' +
+    cuerpo + '</tbody></table>' + alterna +
+    '<p class="mini">Ordenado por cuánta gente pide lo mismo' +
+    (ocultos > 0 ? ' · se muestran los ' + TOPE + ' más pedidos de ' + grupos.length + ' temas' : '') +
+    '. La mejora y el revisado se aplican a todas las peticiones del tema. Si un tema es otra forma de ' +
+    'decir algo que ya trabajaste, usa “Enlazar mejora” y elige la que ya existe. Escribiendo en el ' +
+    'buscador de arriba traes cualquier tema al ranking. Las referencias son las guías que el médico ' +
+    'quiere que se citen, no son temas aparte.</p>';
 }
 
 function pintarTendencia(lista){
@@ -457,12 +464,4 @@ function puntajeNombre(s){
 
 function etqMes(m){
   return String(m).slice(5) + "/" + String(m).slice(2, 4);
-}
-
-const PALABRAS_PLATAFORMA = ["plataforma","pagina","app","aplicacion","buscador","busqueda","filtro",
-  "precio","pago","pague","suscripcion","costo","letra","color","colores","diseno","interfaz",
-  "enredado","entender","lento","carga","sesion","login","clave","correo","notificacion","celular","movil"];
-
-function esPlataforma(clave){
-  return PALABRAS_PLATAFORMA.some(p => String(clave).indexOf(p) > -1);
 }
