@@ -1,35 +1,26 @@
 /* ============================================================
    CLINICAL HUB · CLASIFICAR TEMAS PEDIDOS
-   Los médicos escriben el mismo tema de muchas formas: "sepsis y
-   shock septico", "sepsis y choque septico", "sepsis, tep, dengue".
-   Aquí se unifican en TEMAS CANÓNICOS.
+   n8n guarda en Supabase el texto tal cual lo escribió el médico
+   y aquí no se toca nunca. La clasificación es MANUAL: cada
+   feedback nuevo llega a la bandeja y uno lo manda a los temas
+   que uno mismo armó. Una petición puede estar en varios temas.
 
-   Nada se renombra ni se borra: el texto original de la petición
-   queda intacto para siempre. Solo se agrega una capa encima:
-     tema_canonico : el nombre oficial del tema
-     tema_peticion : esta petición cuenta para este tema (varios)
-     tema_alias    : este texto, tal cual, cae en este tema, para
-                     que las peticiones futuras se clasifiquen solas
+     tema_canonico : los temas que tú creaste (se pueden renombrar)
+     tema_peticion : esta petición cuenta para este tema
 
-   Una petición puede contar para varios temas a la vez.
-   La clasificación propia de una petición manda sobre el alias.
+   Nada es automático: si no está en tema_peticion, está en la
+   bandeja esperando que alguien la clasifique.
    ============================================================ */
-import { sb, estado, escapar, avisar, abrirVentana, leer } from "./nucleo.js";
+import { sb, estado, escapar, avisar, abrirVentana, leer, fecha } from "./nucleo.js";
 
-export const clasif = { temas: [], porPeticion: new Map(), porClave: new Map(), descartado: null };
-
-function mapear(filas, llave, valor){
-  const m = new Map();
-  (filas || []).forEach(r => {
-    const k = r[llave];
-    if (!m.has(k)) m.set(k, []);
-    m.get(k).push(r[valor]);
-  });
-  return m;
-}
+export const clasif = { temas: [], porPeticion: new Map(), descartado: null };
 
 function unicos(a){
   return a.filter((v, i, t) => t.indexOf(v) === i);
+}
+
+function plural(n, uno, varios){
+  return n + " " + (n === 1 ? uno : varios);
 }
 
 /* ============================================================
@@ -38,33 +29,33 @@ function unicos(a){
 export async function cargarClasificacion(){
   const a = await sb.from("tema_canonico").select("id,nombre,descartado").order("nombre");
   const b = await sb.from("tema_peticion").select("feedback_id,tema_id");
-  const c = await sb.from("tema_alias").select("tema_clave,tema_id");
-  const err = a.error || b.error || c.error;
+  const err = a.error || b.error;
   if (err){
     avisar("No se pudo leer la clasificación de temas. " + err.message, "mal", "#aviso-panel");
     return clasif;
   }
   clasif.temas = a.data || [];
   clasif.descartado = clasif.temas.filter(t => t.descartado)[0] || null;
-  clasif.porPeticion = mapear(b.data, "feedback_id", "tema_id");
-  clasif.porClave = mapear(c.data, "tema_clave", "tema_id");
+  const m = new Map();
+  (b.data || []).forEach(r => {
+    if (!m.has(r.feedback_id)) m.set(r.feedback_id, []);
+    m.get(r.feedback_id).push(r.tema_id);
+  });
+  clasif.porPeticion = m;
   return clasif;
+}
+
+export function temasVivos(){
+  return clasif.temas.filter(t => !t.descartado);
 }
 
 export function temaPorId(id){
   return clasif.temas.filter(t => t.id === id)[0] || null;
 }
 
-/* Qué temas canónicos le corresponden a una petición. Si alguien
-   la clasificó a mano, eso manda; si no, se usa el alias de su
-   texto; si no hay nada, se devuelve vacío y la petición se sigue
-   agrupando por el texto tal cual se escribió. */
+/* En qué temas está esta petición. Vacío = sigue en la bandeja */
 export function temaIdsDe(x){
-  const propios = clasif.porPeticion.get(x.id);
-  if (propios && propios.length) return propios;
-  const porTexto = clasif.porClave.get(x.tema_clave);
-  if (porTexto && porTexto.length) return porTexto;
-  return [];
+  return clasif.porPeticion.get(x.id) || [];
 }
 
 export function esDescartada(x){
@@ -80,107 +71,250 @@ export function nombresDe(x){
 }
 
 /* ============================================================
-   2. Ventana para clasificar
-   Sirve para tres cosas: unir a un tema que ya existe, crear
-   temas nuevos, o sacar del ranking lo que no es un tema.
-   Se puede usar sobre un grupo entero del ranking (varios temas
-   seleccionados a la vez) o sobre una sola petición.
+   2. Clasificar peticiones
+   Se usa desde la bandeja (una o varias a la vez) y desde el
+   modal de comentarios de un tema.
    ============================================================ */
 export function ventanaClasificar(op){
   const ids = unicos(op.ids || []);
-  const claves = unicos(op.claves || []);
   if (!ids.length) return;
   const actuales = op.actuales || [];
-  const vivos = clasif.temas.filter(t => !t.descartado);
+  const vivos = temasVivos();
 
   const lista = vivos.length
     ? vivos.map(t => '<label class="opcion-tema" style="display:block;margin:4px 0">' +
         '<input type="checkbox" class="c-tema" value="' + t.id + '"' +
         (actuales.indexOf(t.id) > -1 ? " checked" : "") + '> ' + escapar(t.nombre) + '</label>').join("")
-    : '<p class="mini">Todavía no hay temas creados. Escribe el primero abajo.</p>';
+    : '<p class="mini">Todavía no has creado temas. Escribe el primero abajo.</p>';
 
   const cuerpo =
-    '<p class="mini">Esto no cambia lo que escribió el médico: su texto queda igual. ' +
-    'Solo defines en qué tema del ranking cuenta.</p>' +
-    '<span class="etiqueta">Unir a un tema que ya existe</span>' +
+    '<p class="mini">El texto del médico no se toca. Aquí solo decides en qué temas cuenta.</p>' +
+    '<span class="etiqueta">Mandar a un tema que ya existe</span>' +
     '<div class="lista-temas" style="max-height:220px;overflow:auto">' + lista + '</div>' +
     '<span class="etiqueta">O crear temas nuevos</span>' +
     '<input class="campo" id="c-nuevos" placeholder="Ej.: Shock séptico, Lesión renal aguda">' +
-    '<p class="mini">Separa con comas si el texto pide varios temas a la vez. Una misma ' +
-    'petición puede contar para varios temas; en el ranking suma en cada uno.</p>' +
-    '<label class="opcion-tema" style="display:block;margin:4px 0"><input type="checkbox" id="c-descartar">' +
-    ' No es un tema · sacarlo del ranking</label>' +
+    '<p class="mini">Separa con comas si el texto pide varios temas a la vez: la petición suma en cada uno.</p>' +
     '<label class="opcion-tema" style="display:block;margin:4px 0"><input type="checkbox" id="c-limpiar">' +
-    ' Quitar la clasificación · volver a agrupar por el texto</label>' +
-    (claves.length
-      ? '<p class="mini">Las peticiones que lleguen después escritas igual caerán solas en este tema.</p>'
-      : '<p class="mini">Cambio solo para esta petición: no afecta a las demás que digan lo mismo.</p>');
+    ' Dejar sin clasificar · devolver a la bandeja</label>';
 
   abrirVentana({
-    titulo: "Clasificar tema",
-    guia: (op.nombre || "Sin nombre") + " · " + plural(ids.length, "petición", "peticiones"),
+    titulo: "Clasificar",
+    guia: (op.nombre ? String(op.nombre).slice(0, 70) + " · " : "") + plural(ids.length, "petición", "peticiones"),
     cuerpo: cuerpo,
     aceptar: "Guardar",
     ancha: true,
     alAceptar: async () => {
       const limpiar = marcado("c-limpiar");
-      const descartar = marcado("c-descartar");
       let finales = [];
-
-      if (limpiar) finales = [];
-      else if (descartar) finales = clasif.descartado ? [clasif.descartado.id] : [];
-      else {
+      if (!limpiar){
         finales = Array.prototype.slice.call(document.querySelectorAll(".c-tema:checked")).map(e => e.value);
         const nuevos = String(leer("c-nuevos") || "").split(",").map(s => s.trim()).filter(Boolean);
         for (let i = 0; i < nuevos.length; i++){
           const id = await idDeTema(nuevos[i]);
           if (id) finales.push(id);
         }
-      }
-      finales = unicos(finales);
-
-      if (!limpiar && !finales.length){
-        avisar("Elige un tema, escribe uno nuevo, o marca una de las dos casillas.", "mal", "#aviso-forma");
-        return false;
-      }
-
-      const usuario = estado.usuario && estado.usuario.id;
-
-      const d1 = await sb.from("tema_peticion").delete().in("feedback_id", ids);
-      if (d1.error) throw d1.error;
-      if (finales.length){
-        const nuevas = [];
-        ids.forEach(i => finales.forEach(t => nuevas.push({ feedback_id:i, tema_id:t, creado_por:usuario })));
-        const i1 = await sb.from("tema_peticion").insert(nuevas);
-        if (i1.error) throw i1.error;
-      }
-
-      if (op.alias && claves.length){
-        const d2 = await sb.from("tema_alias").delete().in("tema_clave", claves);
-        if (d2.error) throw d2.error;
-        if (finales.length){
-          const alias = [];
-          claves.forEach(c => finales.forEach(t => alias.push({ tema_clave:c, tema_id:t, creado_por:usuario })));
-          const i2 = await sb.from("tema_alias").insert(alias);
-          if (i2.error) throw i2.error;
+        finales = unicos(finales);
+        if (!finales.length){
+          avisar("Elige un tema, escribe uno nuevo, o marca la casilla de dejar sin clasificar.", "mal", "#aviso-forma");
+          return false;
         }
       }
-
+      await guardarTemas(ids, finales);
       avisar(limpiar
-        ? "Clasificación quitada · vuelve a agruparse por el texto."
+        ? plural(ids.length, "petición devuelta", "peticiones devueltas") + " a la bandeja."
         : "Listo · " + plural(ids.length, "petición clasificada", "peticiones clasificadas"),
         "", "#aviso-panel");
-
       await cargarClasificacion();
       if (op.recargar) await op.recargar();
     }
   });
 }
 
-function plural(n, uno, varios){
-  return n + " " + (n === 1 ? uno : varios);
+/* Reemplaza los temas de esas peticiones por los elegidos */
+async function guardarTemas(ids, temaIds){
+  const usuario = estado.usuario && estado.usuario.id;
+  const d = await sb.from("tema_peticion").delete().in("feedback_id", ids);
+  if (d.error) throw d.error;
+  if (!temaIds.length) return;
+  const filas = [];
+  ids.forEach(i => temaIds.forEach(t => filas.push({ feedback_id:i, tema_id:t, creado_por:usuario })));
+  const ins = await sb.from("tema_peticion").insert(filas);
+  if (ins.error) throw ins.error;
 }
 
+/* Descartar: sale de la bandeja y del ranking, sin borrar el dato
+   y sin necesidad de ponerle un tema */
+export async function descartarPeticiones(ids, recargar){
+  if (!ids || !ids.length) return;
+  if (!clasif.descartado){
+    const r = await sb.from("tema_canonico").insert({ nombre:"No es un tema", descartado:true })
+      .select("id,nombre,descartado").single();
+    if (r.error){ avisar("No se pudo descartar. " + r.error.message, "mal", "#aviso-panel"); return; }
+    clasif.temas.push(r.data);
+    clasif.descartado = r.data;
+  }
+  try { await guardarTemas(unicos(ids), [clasif.descartado.id]); }
+  catch (err){ avisar("No se pudo descartar. " + (err && err.message), "mal", "#aviso-panel"); return; }
+  avisar(plural(unicos(ids).length, "petición descartada", "peticiones descartadas") +
+    " · sigue guardada en Supabase, solo sale de la bandeja.", "", "#aviso-panel");
+  await cargarClasificacion();
+  if (recargar) await recargar();
+}
+
+/* Saca una petición de un tema concreto. Si se queda sin temas,
+   vuelve sola a la bandeja. */
+export async function quitarDeTema(ids, temaId, recargar){
+  const d = await sb.from("tema_peticion").delete().in("feedback_id", ids).eq("tema_id", temaId);
+  if (d.error){ avisar("No se pudo quitar del tema. " + d.error.message, "mal", "#aviso-panel"); return; }
+  avisar("Petición sacada del tema.", "", "#aviso-panel");
+  await cargarClasificacion();
+  if (recargar) await recargar();
+}
+
+/* ============================================================
+   3. Ver los comentarios reales de un tema
+   Es la lupa del ranking: aquí se lee tal cual lo que escribió
+   cada médico y se corrige la clasificación si hace falta.
+   ============================================================ */
+export function ventanaVerTema(tema, peticiones, recargar){
+  const lista = (peticiones || []).slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+  const cuerpo =
+    '<p class="mini">Lo que escribió cada médico, tal cual llegó. Puedes mandar cualquiera a otros ' +
+    'temas o sacarla de este.</p>' +
+    '<div id="ver-lista" style="max-height:58vh;overflow:auto">' +
+    (lista.length ? lista.map(x => tarjetaVer(x, tema)).join("") : '<p class="vacio">Sin peticiones.</p>') +
+    '</div>';
+
+  abrirVentana({
+    titulo: tema.nombre,
+    guia: plural(lista.length, "petición", "peticiones") + " · " +
+      plural(formasDe(lista), "forma de decirlo", "formas de decirlo"),
+    cuerpo: cuerpo,
+    aceptar: "Cerrar",
+    ancha: true,
+    alAceptar: async () => {}
+  });
+
+  const caja = document.getElementById("ver-lista");
+  if (!caja) return;
+  caja.addEventListener("click", e => {
+    const b = e.target.closest("button[data-accion]");
+    if (!b) return;
+    const x = lista.filter(p => String(p.id) === b.dataset.id)[0];
+    if (!x) return;
+    if (b.dataset.accion === "reclasificar"){
+      ventanaClasificar({ nombre:x.tema, ids:[x.id], actuales:temaIdsDe(x), recargar:recargar });
+      return;
+    }
+    if (b.dataset.accion === "quitar") quitarDeTema([x.id], tema.id, recargar);
+  });
+}
+
+export function formasDe(lista){
+  return unicos((lista || []).map(x => x.tema_clave)).length;
+}
+
+function tarjetaVer(x, tema){
+  const otros = nombresDe(x).filter(n => n !== tema.nombre);
+  return '<article class="comentario" style="margin-bottom:10px">' +
+    '<div class="comentario-meta">' +
+    '<span class="fecha">' + fecha(x.fecha) + (x.pais ? " · " + escapar(String(x.pais)) : "") + '</span>' +
+    (x.estrellas != null ? '<span class="nota">' + x.estrellas + ' ★</span>' : '') +
+    '</div>' +
+    '<p>' + escapar(x.tema) + '</p>' +
+    (x.referencias ? '<p class="mini">Referencias que pide: ' + escapar(x.referencias) + '</p>' : '') +
+    (x.comentario ? '<p class="mini">También comentó: ' + escapar(x.comentario) + '</p>' : '') +
+    (otros.length ? '<p class="mini">También cuenta en: ' +
+      otros.map(n => '<span class="etq">' + escapar(n) + '</span>').join(" ") + '</p>' : '') +
+    '<div class="fila-entre">' +
+    '<button class="boton-chico" data-accion="reclasificar" data-id="' + escapar(String(x.id)) + '">Reclasificar</button>' +
+    '<button class="boton-chico" data-accion="quitar" data-id="' + escapar(String(x.id)) + '">Quitar de este tema</button>' +
+    '</div></article>';
+}
+
+/* ============================================================
+   4. Renombrar un tema
+   El nombre se guarda en public.tema_canonico, así que el cambio
+   se ve en todo el panel y queda en Supabase.
+   ============================================================ */
+export function ventanaRenombrar(tema, recargar){
+  const cuerpo =
+    '<span class="etiqueta">Nombre del tema</span>' +
+    '<input class="campo" id="r-nombre" value="' + escapar(tema.nombre) + '">' +
+    '<p class="mini">Se guarda en Supabase (tabla tema_canonico) y se actualiza en todo el panel. ' +
+    'Las peticiones que ya están dentro no se mueven.</p>';
+
+  abrirVentana({
+    titulo: "Renombrar tema",
+    guia: tema.nombre,
+    cuerpo: cuerpo,
+    aceptar: "Guardar",
+    alAceptar: async () => {
+      const nombre = leer("r-nombre");
+      if (!nombre){ avisar("Ponle un nombre al tema.", "mal", "#aviso-forma"); return false; }
+      const r = await sb.from("tema_canonico").update({ nombre: nombre }).eq("id", tema.id);
+      if (r.error) throw r.error;
+      avisar("Tema renombrado a “" + nombre + "”.", "", "#aviso-panel");
+      await cargarClasificacion();
+      if (recargar) await recargar();
+    }
+  });
+}
+
+/* ============================================================
+   5. Borrar un tema
+   Nunca se pierde una petición: primero se decide a dónde van,
+   a un tema que ya existe o a uno nuevo, y después se borra el
+   tema vacío.
+   ============================================================ */
+export function ventanaBorrarTema(tema, ids, recargar){
+  const otros = temasVivos().filter(t => t.id !== tema.id);
+  const cuantas = (ids || []).length;
+
+  const cuerpo = cuantas
+    ? '<p class="mini">Este tema tiene ' + plural(cuantas, "petición", "peticiones") +
+      '. Antes de borrarlo hay que decidir a dónde se mueven: no se pierde ninguna.</p>' +
+      '<span class="etiqueta">Mover las peticiones a</span>' +
+      '<select class="campo" id="b-destino">' +
+      '<option value="">Crear un tema nuevo</option>' +
+      otros.map(t => '<option value="' + t.id + '">' + escapar(t.nombre) + '</option>').join("") +
+      '</select>' +
+      '<input class="campo" id="b-nuevo" placeholder="Nombre del tema nuevo">' +
+      '<p class="mini">Si eliges un tema de la lista, deja el campo de abajo vacío.</p>'
+    : '<p class="mini">Este tema no tiene peticiones, se puede borrar sin mover nada.</p>';
+
+  abrirVentana({
+    titulo: "Borrar tema",
+    guia: tema.nombre,
+    cuerpo: cuerpo,
+    aceptar: "Borrar",
+    alAceptar: async () => {
+      if (cuantas){
+        let destino = leer("b-destino");
+        if (!destino){
+          const nombre = leer("b-nuevo");
+          if (!nombre){ avisar("Elige un tema de la lista o escribe el nombre del tema nuevo.", "mal", "#aviso-forma"); return false; }
+          destino = await idDeTema(nombre);
+        }
+        if (destino === tema.id){ avisar("Elige un tema distinto al que vas a borrar.", "mal", "#aviso-forma"); return false; }
+        const mover = await sb.from("tema_peticion").upsert(
+          unicos(ids).map(i => ({ feedback_id:i, tema_id:destino, creado_por:estado.usuario && estado.usuario.id })),
+          { onConflict:"feedback_id,tema_id", ignoreDuplicates:true });
+        if (mover.error) throw mover.error;
+      }
+      const borrar = await sb.from("tema_canonico").delete().eq("id", tema.id);
+      if (borrar.error) throw borrar.error;
+      avisar("Tema borrado" + (cuantas ? " · sus peticiones se movieron al tema que elegiste." : "."), "", "#aviso-panel");
+      await cargarClasificacion();
+      if (recargar) await recargar();
+    }
+  });
+}
+
+/* ============================================================
+   6. Ayudas
+   ============================================================ */
 function marcado(id){
   const e = document.getElementById(id);
   return !!(e && e.checked);
