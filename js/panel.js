@@ -108,14 +108,6 @@ $("#codigo").addEventListener("keydown", e => { if (e.key === "Enter") $("#verif
 $("#salir").addEventListener("click", salir);
 $("#volver").addEventListener("click", salir);
 
-/* Repetir el chiste de la entrada al hacer clic */
-$("#chiste").addEventListener("click", () => {
-  const s = $("#chiste .chiste");
-  s.classList.remove("play");
-  void s.getBoundingClientRect();
-  s.classList.add("play");
-});
-
 /* ============================================================
    2. PANEL: barra superior y pestañas
    ============================================================ */

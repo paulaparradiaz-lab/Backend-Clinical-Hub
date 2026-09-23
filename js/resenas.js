@@ -112,7 +112,9 @@ para encontrar y agrupar: no esconde nada del histórico.</p>
 <span class="rotulo">Filtros</span>
 <div class="filtros" id="f-foco" role="group" aria-label="Foco"></div>
 <select class="campo compacto" id="f-etiqueta" aria-label="Categoría"></select>
-<select class="campo compacto" id="f-pais" aria-label="País"></select>
+<span class="rotulo">País</span>
+<div class="filtros" id="f-paises" role="group" aria-label="País"></div>
+<select class="campo compacto" id="f-pais" aria-label="País" hidden></select>
 <input class="campo compacto buscador" id="f-texto" type="search" placeholder="Buscar en los comentarios…">
 </div>
 
@@ -177,9 +179,48 @@ $("#f-canal").addEventListener("click", e => elegir(e, "canal"));
 $("#f-rango").addEventListener("click", e => elegir(e, "dias"));
 $("#f-foco").addEventListener("click", e => elegir(e, "foco"));
 $("#f-etiqueta").addEventListener("change", e => { f.etiqueta = e.target.value; pintar(); });
-$("#f-pais").addEventListener("change", e => { f.pais = e.target.value; pintar(); });
+$("#f-pais").addEventListener("change", e => { f.pais = e.target.value; pintarPaises(); pintar(); });
+$("#f-paises").addEventListener("click", e => {
+const b = e.target.closest("button[data-p]");
+if (!b) return;
+f.pais = b.dataset.p;
+$("#f-pais").value = f.pais;
+pintarPaises();
+pintar();
+});
 $("#f-texto").addEventListener("input", e => { f.texto = e.target.value.trim().toLowerCase(); pintar(); });
 $("#f-notas").addEventListener("click", e => { const b = e.target.closest("button[data-n]"); if (b) alternarNota(b.dataset.n); });
+
+/* Abrir y cerrar los filtros con una clase, no con el foco.
+   El foco no sirve aqui: al elegir, resenas.js repinta los botones y el
+   navegador se lo lleva; ademas Safari ni siquiera se lo deja al soltar
+   el clic. La clase vive en .filtros-fila, que nunca se repinta, asi que
+   sobrevive. En el CSS el desplegable se abre con .abierto. */
+function cerrarFiltros(excepto){
+  Array.prototype.forEach.call(
+    document.querySelectorAll("#panel-ranking .filtros-fila.abierto"),
+    g => { if (g !== excepto) g.classList.remove("abierto"); });
+}
+["#f-canal", "#f-rango", "#f-notas", "#f-foco", "#f-paises"].forEach(sel => {
+  const caja = $(sel);
+  if (!caja) return;
+  /* en captura, para leer el estado antes de que el repintado borre todo */
+  caja.addEventListener("click", e => {
+    if (!e.target.closest("button")) return;
+    const grupo = caja.closest(".filtros-fila");
+    if (!grupo) return;
+    const estaba = grupo.classList.contains("abierto");
+    cerrarFiltros(grupo);
+    grupo.classList.toggle("abierto", !estaba);
+  }, true);
+});
+/* En captura: si esperamos a la fase de burbuja, el repintado ya destruyo
+   el boton y closest() devuelve null, asi que cerraria el grupo que se
+   acaba de abrir. En captura el evento pasa por aqui antes de todo eso. */
+document.addEventListener("click", e => {
+  if (!e.target.closest("#panel-ranking .filtros-fila")) cerrarFiltros(null);
+}, true);
+document.addEventListener("keydown", e => { if (e.key === "Escape") cerrarFiltros(null); });
 $("#reparto").addEventListener("click", e => { const b = e.target.closest("[data-n]"); if (b) alternarNota(b.dataset.n); });
 $("#balance").addEventListener("click", e => { const b = e.target.closest("[data-g]"); if (b) alternarGrupo(b.dataset.g); });
 $("#btn-recargar").addEventListener("click", () => cargar());
@@ -222,9 +263,19 @@ fila("#f-foco", FOCOS, f.foco);
 }
 
 function fila(donde, lista, activo){
-$(donde).innerHTML = lista.map(par =>
+const caja = $(donde);
+/* Al repintar se destruyen los botones y el foco se va al body. El CSS
+   abre el desplegable con :focus-within, asi que hay que devolverselo
+   al chip que quedo elegido, y solo si el foco estaba aqui adentro. */
+const teniaFoco = caja.contains(document.activeElement);
+caja.innerHTML = lista.map(par =>
 '<button class="chip" data-v="' + par[0] + '" aria-pressed="' + (String(par[0]) === String(activo)) + '">' +
 escapar(par[1]) + '</button>').join("");
+altoDelPanel(caja, lista.length);
+if (teniaFoco){
+const elegido = caja.querySelector('.chip[aria-pressed="true"]') || caja.firstElementChild;
+if (elegido) elegido.focus({ preventScroll:true });
+}
 }
 
 function pintarSubpestanas(){
@@ -242,15 +293,35 @@ g.hidden = !n;
 g.textContent = n > 99 ? "99+" : String(n);
 }
 
+/* El panel blanco de atras es un ::before de alto fijo, asi que hay que
+   decirle cuantas opciones trae el grupo. Antes estaba escrito a mano en
+   el CSS (3, 5 y 7); ahora lo calcula quien pinta, y asi ninguna lista se
+   queda con el panel corto cuando crece. */
+function altoDelPanel(caja, n){
+if (!caja) return;
+caja.style.setProperty("--alto", "calc(38px*" + n + " + 4px*" + Math.max(0, n - 1) + " + 20px)");
+}
+
 function pintarPaises(){
 const sel = $("#f-pais");
 if (!sel) return;
 const cuenta = new Map();
 filas.forEach(x => { if (x.pais) cuenta.set(x.pais, (cuenta.get(x.pais) || 0) + 1); });
 const lista = Array.from(cuenta.entries()).sort((a, b) => b[1] - a[1]);
+/* El select sigue existiendo y sigue siendo la fuente de la verdad: esta
+   oculto, pero quitarFiltro() y el resto del modulo lo siguen leyendo. */
 sel.innerHTML = '<option value="">Todos los países</option>' +
 lista.map(p => '<option value="' + escapar(p[0]) + '">' + escapar(nombrePais(p[0])) + ' · ' + p[1] + '</option>').join("");
 sel.value = f.pais;
+/* Y encima las pastillas, iguales a las de Fuente, Periodo y Reseñas. */
+const caja = $("#f-paises");
+if (!caja) return;
+const opciones = [["", "Todos los países"]].concat(
+lista.map(p => [p[0], nombrePais(p[0]) + " · " + p[1]]));
+caja.innerHTML = opciones.map(par =>
+'<button class="chip" data-p="' + escapar(par[0]) + '" aria-pressed="' +
+(String(par[0]) === String(f.pais)) + '">' + escapar(par[1]) + '</button>').join("");
+altoDelPanel(caja, opciones.length);
 }
 
 /* ============================================================
@@ -771,6 +842,11 @@ return par ? par[1] : String(v);
 function fichasActivas(){
 const out = [];
 if (f.canal !== "todos") out.push({ campo:"canal", valor:"", txt:"Fuente: " + rotuloDe(CANALES, f.canal) });
+/* El periodo lleva ficha siempre, aunque este en el valor de arranque:
+   a diferencia de los demas nunca esta "apagado", asi que la unica forma
+   de que se vea cual estas mirando es mostrarlo. La x lo manda a
+   Historico, que es el unico valor que no recorta por fecha. */
+out.push({ campo:"dias", valor:"", txt:"Periodo: " + rotuloDe(RANGOS, String(f.dias)) });
 if (f.foco !== "todos") out.push({ campo:"foco", valor:"", txt:rotuloDe(FOCOS, f.foco) });
 f.notas.slice().sort().reverse().forEach(n =>
 out.push({ campo:"nota", valor:n, txt:"Reseña: " + rotuloDe(NOTAS, n) }));
@@ -799,16 +875,18 @@ lista.map(x => '<button class="ficha" title="Quitar este filtro" data-quitar="' 
 
 function quitarFiltro(campo, valor){
 if (campo === "todo"){
-f.canal = "todos"; f.foco = "todos"; f.etiqueta = ""; f.pais = ""; f.texto = ""; f.notas = [];
+f.canal = "todos"; f.dias = 0; f.foco = "todos"; f.etiqueta = ""; f.pais = ""; f.texto = ""; f.notas = [];
 $("#f-etiqueta").value = "";
 $("#f-pais").value = "";
 $("#f-texto").value = "";
 pintarChips();
+pintarPaises();
 }
 else if (campo === "nota"){ const i = f.notas.indexOf(valor); if (i > -1) f.notas.splice(i, 1); }
 else if (campo === "etiqueta"){ f.etiqueta = ""; $("#f-etiqueta").value = ""; }
-else if (campo === "pais"){ f.pais = ""; $("#f-pais").value = ""; }
+else if (campo === "pais"){ f.pais = ""; $("#f-pais").value = ""; pintarPaises(); }
 else if (campo === "texto"){ f.texto = ""; $("#f-texto").value = ""; }
+else if (campo === "dias"){ f.dias = 0; pintarChips(); }
 else { f[campo] = "todos"; pintarChips(); }
 pintar();
 }
@@ -836,6 +914,7 @@ pintar();
 function pintarNotas(lista){
 const caja = $("#f-notas");
 if (!caja) return;
+const teniaFoco = caja.contains(document.activeElement);
 const cuenta = {};
 (lista || []).forEach(x => {
 const k = x.estrellas == null ? "0" : String(x.estrellas);
@@ -848,6 +927,10 @@ const n = v === "" ? (lista || []).length : (cuenta[v] || 0);
 return '<button class="chip" data-n="' + v + '" aria-pressed="' + activo + '">' +
 par[1] + ' <b class="tabular">' + n + '</b></button>';
 }).join("");
+if (teniaFoco){
+const elegido = caja.querySelector('.chip[aria-pressed="true"]') || caja.firstElementChild;
+if (elegido) elegido.focus({ preventScroll:true });
+}
 }
 
 /* ============================================================
