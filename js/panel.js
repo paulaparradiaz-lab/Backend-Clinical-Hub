@@ -8,12 +8,14 @@ import { sb, $, estado, escapar, avisar, ocupado, traducirError,
 import * as resenas from "./resenas.js";
 import * as temas from "./temas.js";
 import * as mejoras  from "./mejoras.js";
+import * as hitos    from "./hitos.js";
 
 /* Aquí crece el panel: añade una sección con su render y listo. */
 const SECCIONES = [
   { id:"resenas", nombre:"Reseñas", render: resenas.render },
 { id:"temas", nombre:"Temas pedidos", render: temas.render },
   { id:"mejoras",   nombre:"Mejoras",  render: mejoras.render },
+  { id:"hitos",     nombre:"Hitos",    render: hitos.render },
   { id:"ventas",    nombre:"Ventas" },
   { id:"contenido", nombre:"Contenido" },
   { id:"admin",     nombre:"Administrativo" }
@@ -161,15 +163,25 @@ function marcarPestana(){
   moverCurva();
 }
 
+/* En escritorio la curva baja por la barra lateral; en celular el menú
+   va abajo y la curva se desliza de lado sobre él (mismo corte de 900 px
+   que el CSS). */
+const menuAbajo = window.matchMedia("(max-width: 899px)");
+
 function moverCurva(){
   const curva = $(".pestana-curva");
   const activa = $('#pestanas .pestana[aria-selected="true"]');
   if (!curva || !activa) return;
+  const caja = activa.getBoundingClientRect();
+  if (menuAbajo.matches){
+    curva.style.transform = "translateX(" + (caja.left + caja.width / 2 - 46) + "px)";
+    return;
+  }
   const barra = $(".barra-superior").getBoundingClientRect();
-  const caja  = activa.getBoundingClientRect();
   curva.style.transform = "translateY(" + (caja.top - barra.top + caja.height / 2 - 46) + "px)";
 }
 window.addEventListener("resize", moverCurva);
+menuAbajo.addEventListener("change", moverCurva);
 
 function abrirSeccion(id){
   const s = SECCIONES.find(x => x.id === id);

@@ -980,6 +980,18 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
   #panel-ranking{padding:16px 14px 18px}
   #panel-ranking > .resumen-sub{float:none;margin:0 0 12px}
   #ranking .tabla{table-layout:auto}
+  /* La tabla es más ancha que un celular: se desliza de lado dentro de su
+     bandeja en vez de ensanchar toda la página (y sacar de la vista el
+     menú de abajo). */
+  #ranking{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  #ranking .tabla{min-width:640px}
+  /* Reseñas: los cuatro filtros (Fuente, Periodo, Reseñas, País) no
+     caben en una fila de celular; se apilan uno bajo el otro. */
+  #panel-ranking:has(#f-canal){grid-template-columns:minmax(0,1fr)}
+  #panel-ranking:has(#f-canal) > :nth-child(1),
+  #panel-ranking:has(#f-canal) > :nth-child(2),
+  #panel-ranking:has(#f-canal) > :nth-child(3),
+  #panel-ranking:has(#f-canal) > :nth-child(4){grid-area:auto}
 }
 
 
@@ -1009,6 +1021,129 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
   .ventana{padding:22px 18px}
   .ventana-botones{flex-direction:column-reverse}
   .dato:hover,.accion:hover,.comentario:hover{transform:none}
+}
+/* ============================================================
+   HITOS — línea de tiempo que se desbloquea sola
+   ============================================================ */
+.pestana[data-seccion="hitos"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9z'/%3E%3Cpath d='M5 21v-7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9z'/%3E%3Cpath d='M5 21v-7'/%3E%3C/svg%3E")}
+/* La línea: un riel vertical; cada hito es un punto (check lima si
+   está desbloqueado, candado gris si no) y una tarjeta al lado. */
+.hitos-caja{margin-top:18px}
+.linea-hitos{list-style:none;margin:14px 0 0;padding:0 0 0 38px;position:relative}
+.linea-hitos::before{content:"";position:absolute;left:13px;top:10px;bottom:10px;width:2px;border-radius:2px;background:var(--track)}
+.hl-sep{font-size:12.5px;font-weight:600;color:var(--faint);margin:6px 0 10px}
+.hl-sep:not(:first-child){margin-top:18px}
+.hl{position:relative;margin:0 0 10px;animation:ch-aparece .4s ease both}
+.hl-punto{
+  position:absolute;left:-38px;top:12px;width:28px;height:28px;border-radius:50%;
+  display:grid;place-items:center;box-shadow:0 0 0 4px var(--surface);
+}
+.hl-punto::before{
+  content:"";width:14px;height:14px;background:currentColor;
+  -webkit-mask:var(--icono) center/contain no-repeat;mask:var(--icono) center/contain no-repeat;
+}
+.hl.on .hl-punto{background:var(--brand);color:var(--brand-ink);--icono:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5l10 -10'/%3E%3C/svg%3E")}
+.hl.off .hl-punto{background:var(--surface2);color:var(--faint);border:1px solid var(--border2);--icono:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z'/%3E%3Cpath d='M8 11v-4a4 4 0 1 1 8 0v4'/%3E%3C/svg%3E")}
+.hl-caja{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:12px 16px}
+.hl.on .hl-caja{border-color:var(--brand-line)}
+.hl.off .hl-caja{background:var(--surface2);border-style:dashed}
+.hl-cabeza{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.hl-titulo{font-weight:700;font-size:15px;letter-spacing:-.01em}
+.hl.off .hl-titulo{color:var(--muted)}
+.hl-fecha{margin-left:auto;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--brand-bg);color:var(--brand-ink);white-space:nowrap}
+.hl-mas{margin-left:auto;font-size:12px;color:var(--faint);white-space:nowrap}
+.hl-sub{display:block;margin-top:3px;font-size:13px;color:var(--faint)}
+.hl .barra{height:7px;margin-top:10px}
+.hl .barra span{background:var(--brand)}
+
+/* ============================================================
+   MENÚ ABAJO EN CELULAR (menos de 900 px)
+   El riel verde de escritorio pasa a una barra fija abajo, con la
+   misma curva deslizándose (de lado) hasta la opción activa. Solo
+   Reseñas, Temas, Mejoras e Hitos: las secciones "pronto" se ocultan.
+   El logo y el avatar se quedan arriba.
+   ============================================================ */
+@media (max-width:899px){
+  /* Sin blur: un backdrop-filter haría que la barra fija se pegue al
+     encabezado en vez de a la pantalla. */
+  .barra-superior{backdrop-filter:none;-webkit-backdrop-filter:none;background:color-mix(in srgb, var(--bg) 94%, transparent)}
+  main{padding-bottom:120px}
+
+  .pestanas{
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:0;
+    width:auto; max-width:none; margin:0; overflow:visible;
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    background:var(--side); border:0; border-radius:22px 22px 0 0;
+    box-shadow:0 -12px 30px -18px rgba(0,0,0,.55);
+  }
+  .pestana[aria-disabled="true"]{display:none}
+  .pestana{
+    height:52px; min-width:0; padding:6px 2px 4px; gap:5px;
+    flex-direction:column; justify-content:flex-end; align-items:center;
+    font-size:10.5px; font-weight:600; color:var(--side-faint);
+    background:transparent; border-radius:18px; box-shadow:none;
+    position:relative; isolation:isolate;
+    transition:color .3s,transform .5s var(--ease);
+  }
+  .pestana::before{width:21px;height:21px}
+  .pestana:hover{color:#ffffff;background:transparent}
+  .pestana:active{transform:scale(.92)}
+  .pestana-txt{white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;line-height:1.1}
+  /* La activa sube y el icono queda dentro de una bolita lima, como la
+     de la barra lateral. */
+  .pestana[aria-selected="true"]{
+    color:var(--brand-ink); transform:translateY(-14px); box-shadow:none; gap:9px; background:transparent;
+  }
+  /* La bolita es un círculo aparte, detrás del icono: así no la recorta
+     el borde del botón. */
+  .pestana[aria-selected="true"]::after{
+    content:""; position:absolute; z-index:-1; left:50%; top:-3px;
+    width:40px; height:40px; margin-left:-20px; border-radius:50%;
+    background:var(--brand); box-shadow:0 6px 14px -8px rgba(0,0,0,.6);
+  }
+  .pestana[aria-selected="true"] .pestana-txt{color:#ffffff}
+  .pestana[aria-selected="true"]:active{transform:translateY(-14px) scale(.94)}
+
+  /* Celular es para clasificar: los Inbox quedan igual, y los Ranking
+     muestran solo lo esencial. Reseñas: el reparto de calificaciones y
+     el mes a mes. Temas pedidos: solo la tabla del ranking, sin Países
+     ni Referencias. Lo demás sigue en el HTML y se ve en escritorio. */
+  #panel-ranking:has(#f-canal) > .filtros-fila,
+  #panel-ranking:has(#f-canal) > .activos,
+  #panel-ranking:has(#f-canal) > .tarjetas,
+  #panel-ranking:has(#f-canal) > .rejilla ~ .rejilla,
+  #panel-ranking:has(#f-canal) > .comentarios{display:none}
+  #panel-ranking:has(#ranking) > .resumen-sub,
+  #panel-ranking:has(#ranking) > .filtros-fila,
+  #panel-ranking:has(#ranking) > .rejilla{display:none}
+  #ranking .tabla th:nth-child(3),#ranking .tabla td:nth-child(3),
+  #ranking .tabla th:nth-child(4),#ranking .tabla td:nth-child(4){display:none}
+  /* Cada tema, una tarjeta compacta: el nombre arriba y debajo
+     "9 piden", el estado y las acciones. Sin desplazarse de lado. */
+  #ranking{overflow-x:visible}
+  #ranking .tabla{display:block;min-width:0}
+  #ranking .tabla thead{display:none}
+  #ranking .tabla tbody{display:grid;gap:8px;padding-top:8px}
+  #ranking .tabla tbody tr{
+    display:grid; grid-template-columns:auto auto minmax(0,1fr); align-items:center; gap:10px;
+    background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px 16px;
+  }
+  #ranking .tabla tbody td:nth-child(n){display:block;width:auto;padding:0;border:0;border-radius:0;background:none;text-align:left}
+  #ranking .tabla tbody td:nth-child(1){grid-column:1/-1}
+  #ranking .tabla tbody td:nth-child(3),#ranking .tabla tbody td:nth-child(4){display:none}
+  #ranking .tabla tbody td:nth-child(2)::after{content:" piden";font-size:12px;font-weight:500;color:var(--faint)}
+  #ranking .tabla tbody td:nth-child(6){justify-self:end}
+  #ranking{padding:4px 10px 10px}
+  #ranking .etq{min-width:0}
+
+  .pestana-curva{
+    display:block; position:fixed; left:0; top:auto; z-index:30;
+    bottom:calc(71px + env(safe-area-inset-bottom));
+    width:92px; height:18px; background:var(--side); pointer-events:none;
+    clip-path:path("M6 18 C21 18 25 0 46 0 C67 0 71 18 86 18 Z");
+    transition:transform .5s var(--ease);
+  }
 }
 </style>
 </head>
