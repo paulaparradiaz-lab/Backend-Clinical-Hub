@@ -5,7 +5,8 @@ etiquetar, marcar revisado y convertir en mejora.
 Cada pestaña le pasa la fila y su propia función de recarga.
 ============================================================ */
 import { sb, estado, escapar, avisar, abrirVentana, leer,
-opcionesEquipo, opciones } from "./nucleo.js";
+opcionesEquipo, opciones, traducirError } from "./nucleo.js";
+import { crearCategoria } from "./categorias.js";
 
 const TIPOS = [["contenido","Contenido"], ["producto","Producto"], ["proceso","Proceso"],
 ["soporte","Soporte"], ["otro","Otro"]];
@@ -185,17 +186,56 @@ if (t.error) throw t.error;
 
 /* Si es una sola, las categorías que ya tenía vienen marcadas y se
 pueden quitar. Si son varias, lo marcado se suma y no se le quita
-nada a ninguna. */
+nada a ninguna. Y si ninguna categoría sirve, se crea aquí mismo
+sin cerrar la ventana, igual que los temas nuevos en Temas pedidos. */
 export function ventanaCategoria(lista, recargar){
 const una = lista.length === 1;
 const actuales = una ? (lista[0].etiquetas || []) : [];
-const cuerpo = '<div class="opciones">' + estado.etiquetas.map(e =>
-'<label class="opcion"><input type="checkbox" value="' + e.clave + '"' +
-(actuales.indexOf(e.clave) > -1 ? " checked" : "") + '>' +
-'<span><b>' + escapar(e.nombre) + '</b><br><span class="mini">' +
-escapar(e.descripcion || "") + '</span></span></label>').join("") + '</div>' +
+let marcadas = actuales.slice();
+
+const cuerpo =
+'<div id="k-opciones"></div>' +
 (una ? '' : '<p class="mini">Se le pone a las ' + lista.length +
-' reseñas elegidas. Lo que ya tuvieran se conserva.</p>');
+' reseñas elegidas. Lo que ya tuvieran se conserva.</p>') +
+'<span class="etiqueta">O crear una categoría nueva</span>' +
+'<div style="display:flex;gap:8px;align-items:center">' +
+'<input class="campo" id="k-nueva" style="flex:1 1 auto;margin:0" ' +
+'placeholder="Ej.: Errores de contenido">' +
+'<button class="boton-chico" id="k-anadir" type="button">Añadir</button>' +
+'</div>' +
+'<p class="mini">Añadir la crea y la deja marcada aquí mismo, sin cerrar la ventana. ' +
+'El nombre se puede cambiar después desde Tipo de problema.</p>';
+
+/* La lista se repinta cuando creas una categoría, así que lo marcado
+vive en «marcadas» y no en el DOM. */
+function pintarOpciones(){
+const caja = document.getElementById("k-opciones");
+if (!caja) return;
+caja.innerHTML = '<div class="opciones">' + estado.etiquetas.map(e =>
+'<label class="opcion"><input type="checkbox" class="k-cat" value="' + e.clave + '"' +
+(marcadas.indexOf(e.clave) > -1 ? " checked" : "") + '>' +
+'<span><b>' + escapar(e.nombre) + '</b><br><span class="mini">' +
+escapar(e.descripcion || "") + '</span></span></label>').join("") + '</div>';
+}
+
+async function anadir(){
+const btn = document.getElementById("k-anadir");
+const nombre = leer("k-nueva");
+if (!nombre){ avisar("Escribe el nombre de la categoría nueva.", "mal", "#aviso-forma"); return; }
+if (btn){ btn.disabled = true; btn.textContent = "Creando…"; }
+try {
+const clave = await crearCategoria(nombre, null);
+if (marcadas.indexOf(clave) === -1) marcadas.push(clave);
+pintarOpciones();
+const inp = document.getElementById("k-nueva");
+if (inp){ inp.value = ""; inp.focus(); }
+avisar("Categoría “" + nombre + "” creada y marcada.", "", "#aviso-forma");
+} catch (err){
+avisar(traducirError(err && err.message), "mal", "#aviso-forma");
+} finally {
+if (btn){ btn.disabled = false; btn.textContent = "Añadir"; }
+}
+}
 
 abrirVentana({
 titulo: una ? "Categorizar" : "Categorizar " + lista.length + " reseñas",
@@ -204,22 +244,41 @@ cuerpo: cuerpo,
 aceptar: una ? "Guardar categoría" : "Categorizar las " + lista.length,
 ancha: true,
 alAceptar: async () => {
-const marcadas = Array.from(document.querySelectorAll(".forma input:checked")).map(i => i.value);
-if (!marcadas.length){
-avisar("Elige al menos una categoría.", "mal", "#aviso-forma");
+const elegidas = Array.prototype.map.call(document.querySelectorAll(".k-cat:checked"), i => i.value);
+if (!elegidas.length){
+avisar("Elige al menos una categoría o crea una nueva.", "mal", "#aviso-forma");
 return false;
 }
 if (una){
-const quitar = actuales.filter(c => marcadas.indexOf(c) === -1);
+const quitar = actuales.filter(c => elegidas.indexOf(c) === -1);
 if (quitar.length){
 const r = await sb.from("feedback_etiquetas").delete()
 .eq("feedback_id", lista[0].id).in("etiqueta", quitar);
 if (r.error) throw r.error;
 }
 }
-await ponerEtiquetas(lista, marcadas);
+await ponerEtiquetas(lista, elegidas);
 if (recargar) await recargar();
 }
+});
+
+pintarOpciones();
+
+const caja = document.getElementById("k-opciones");
+if (caja) caja.addEventListener("change", e => {
+const cb = e.target && e.target.closest ? e.target.closest(".k-cat") : null;
+if (!cb) return;
+const v = String(cb.value);
+if (cb.checked){ if (marcadas.indexOf(v) === -1) marcadas.push(v); }
+else marcadas = marcadas.filter(x => x !== v);
+});
+
+const btnAdd = document.getElementById("k-anadir");
+if (btnAdd) btnAdd.onclick = anadir;
+
+const campo = document.getElementById("k-nueva");
+if (campo) campo.addEventListener("keydown", e => {
+if (e.key === "Enter"){ e.preventDefault(); anadir(); }
 });
 }
 
