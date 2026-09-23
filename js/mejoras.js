@@ -2,13 +2,16 @@
    CLINICAL HUB · PESTAÑA MEJORAS
    La hoja de vida de la plataforma: qué cambiamos, por qué feedback
    lo cambiamos, quién lo hizo y qué pasó con las notas después.
-   Lee public.v_hoja_de_vida y public.v_tareas_detalle.
+   Lee public.v_hoja_de_vida, public.v_tareas_detalle y public.accion_tema:
+   las mejoras que nacen de una reseña traen voces, y las que nacen del
+   ranking de Temas pedidos traen el tema al que están enlazadas.
    ============================================================ */
 import { sb, $, estado, escapar, fechaCorta, num, dec, pct, avisar,
          abrirVentana, leer, opcionesEquipo, opciones, cargarCatalogos } from "./nucleo.js";
 
 let acciones = [];
 let tareas   = [];
+let temasPorAccion = new Map();
 const f = { estado:"todas", responsable:"" };
 
 const ESTADOS = [["todas","Todas"], ["propuesta","Propuestas"], ["en_curso","En curso"],
@@ -89,9 +92,10 @@ function pintarChips(){
    2. Datos
    ============================================================ */
 async function cargar(){
-  const [a, t] = await Promise.all([
+  const [a, t, at] = await Promise.all([
     sb.from("v_hoja_de_vida").select("*"),
-    sb.from("v_tareas_detalle").select("*").order("creada_en", { ascending:false })
+    sb.from("v_tareas_detalle").select("*").order("creada_en", { ascending:false }),
+    sb.from("accion_tema").select("accion_id,tema_canonico(nombre)")
   ]);
   if (a.error){
     $("#acciones").innerHTML = '<p class="vacio">No se pudieron leer las mejoras. ' + escapar(a.error.message) + '</p>';
@@ -100,6 +104,14 @@ async function cargar(){
   acciones = (a.data || []).sort((x, y) =>
     new Date(y.entregada_en || y.creada_en) - new Date(x.entregada_en || x.creada_en));
   tareas = t.data || [];
+  temasPorAccion = new Map();
+  ((at && at.data) || []).forEach(r => {
+    const nom = r.tema_canonico && r.tema_canonico.nombre;
+    if (!nom) return;
+    const lista = temasPorAccion.get(r.accion_id) || [];
+    lista.push(nom);
+    temasPorAccion.set(r.accion_id, lista);
+  });
   if (estado.foco){ f.estado = "todas"; pintarChips(); }
   pintarKpis();
   pintarTareas();
@@ -144,7 +156,7 @@ function pintarKpis(){
     tarjeta(num(enCurso.length), "En curso", num(propuestas.length) + " propuestas") +
     tarjeta(num(abiertas.length), "Tareas abiertas", vencidas.length ? vencidas.length + " vencidas" : "ninguna vencida") +
     tarjeta(medio == null ? "—" : dec(medio, 1), "Días en cerrar", "promedio por tarea") +
-    tarjeta(num(evidencias), "Feedbacks atendidos", "comentarios que ya movieron algo");
+    tarjeta(num(evidencias), "Reseñas atendidas", "comentarios que ya movieron algo");
 }
 
 function tarjeta(cifra, etiqueta, extra, lima){
@@ -217,6 +229,7 @@ function pintarAcciones(){
 
 function tarjetaAccion(a){
   const misTareas = tareas.filter(t => t.accion_id === a.id);
+  const temas = (temasPorAccion.get(a.id) || []).slice().sort((x, y) => x.localeCompare(y));
   const avance = a.tareas ? pct(a.tareas_hechas, a.tareas) : null;
   let impacto = "";
   if (a.promedio_antes != null && a.promedio_despues != null){
@@ -250,8 +263,11 @@ function tarjetaAccion(a){
         '<span class="fila-num tabular"><b>' + a.tareas_hechas + '</b> de ' + a.tareas + '</span></div>'
       : '') +
     (misTareas.length ? '<div class="tareas-accion">' + misTareas.map(filaTarea).join("") + '</div>' : '') +
-    '<p class="mini">' + num(a.evidencias) + ' feedback' + (Number(a.evidencias) === 1 ? "" : "s") + ' de origen' +
-      (a.voces ? ': <span class="voces">' + escapar(String(a.voces).slice(0, 300)) + '</span>' : '') + '</p>' +
+    (temas.length ? '<p class="mini">Nace del ranking de temas: <b>' + escapar(temas.join(" · ")) + '</b></p>' : '') +
+    (Number(a.evidencias)
+      ? '<p class="mini">' + num(a.evidencias) + ' reseña' + (Number(a.evidencias) === 1 ? "" : "s") + ' de origen' +
+        (a.voces ? ': <span class="voces">' + escapar(String(a.voces).slice(0, 300)) + '</span>' : '') + '</p>'
+      : (temas.length ? '' : '<p class="mini">Todavía no tiene ni reseñas ni temas enlazados.</p>')) +
     impacto +
     '<div class="comentario-pie">' +
       '<button class="boton-chico" data-op="tarea" data-id="' + a.id + '">+ Tarea</button>' +
