@@ -2,7 +2,9 @@
    CLINICAL HUB · TRIAGE POR TEMA
    En Temas pedidos se actúa sobre el tema completo, nunca sobre
    una petición suelta. Si seis médicos pidieron falla cardiaca,
-   una sola mejora queda enlazada a las seis peticiones.
+   una sola mejora queda enlazada al tema entero.
+   El enlace vive en public.accion_tema: las reseñas van por su
+   cuenta en public.accion_feedback y una cosa no arrastra a la otra.
    ============================================================ */
 import { sb, estado, escapar, avisar, abrirVentana, leer,
          opcionesEquipo, opciones } from "./nucleo.js";
@@ -46,17 +48,17 @@ export async function revisarTema(ids, valor, boton, recargar){
    nueva, o enganchar este tema a una mejora que ya existe
    (útil cuando el mismo tema llegó escrito de otra manera).
    ============================================================ */
-export async function ventanaMejoraTema(nombreTema, ids, recargar){
-  if (!ids || !ids.length) return;
+export async function ventanaMejoraTema(tema, ids, recargar){
+  if (!tema || !tema.id) return;
   const r = await sb.from("acciones").select("id,numero,titulo,estado")
     .order("numero", { ascending:false });
   const mejoras = r.data || [];
-  const sugerido = String(nombreTema || "").slice(0, 80);
+  const sugerido = String(tema.nombre || "").slice(0, 80);
   const cuantas = ids.length;
 
   const cuerpo =
-    '<p class="mini">Lo que guardes aquí se aplica a ' + plural(cuantas, "petición", "peticiones") +
-    ' de este tema, no a una sola.</p>' +
+    '<p class="mini">La mejora queda enlazada a este tema completo. Hoy lo piden ' + plural(cuantas, "petición", "peticiones") +
+    ', y las que lleguen después quedan cubiertas igual.</p>' +
     '<span class="etiqueta">A qué mejora pertenece</span>' +
     '<select class="campo" id="m-accion">' +
     '<option value="">Crear una mejora nueva</option>' +
@@ -105,16 +107,15 @@ export async function ventanaMejoraTema(nombreTema, ids, recargar){
         accionId = nueva.data.id;
       }
 
-      const v = await sb.from("accion_feedback").upsert(
-        ids.map(id => ({ accion_id: accionId, feedback_id: id })),
-        { onConflict:"accion_id,feedback_id", ignoreDuplicates:true });
+      const v = await sb.from("accion_tema").upsert(
+        [{ accion_id: accionId, tema_id: tema.id }],
+        { onConflict:"accion_id,tema_id", ignoreDuplicates:true });
       if (v.error) throw v.error;
 
       const tarea = leer("m-tarea");
       if (tarea){
         const t = await sb.from("tareas").insert({
           accion_id: accionId,
-          feedback_id: ids[0],
           titulo: tarea,
           responsable_id: leer("m-resp"),
           vence_el: leer("m-vence"),
@@ -130,5 +131,31 @@ export async function ventanaMejoraTema(nombreTema, ids, recargar){
   if (sel) sel.addEventListener("change", () => {
     const caja = document.getElementById("m-nueva");
     if (caja) caja.hidden = !!sel.value;
+  });
+}
+
+/* ============================================================
+   3. Quitar la mejora de un tema
+   Solo borra el enlace tema ↔ mejora de accion_tema. La mejora
+   sigue viva en la hoja de vida con su historia y sus tareas; el
+   tema vuelve al ranking como "sin mejora". Las reseñas no se tocan.
+   ============================================================ */
+export function ventanaDesvincularTema(tema, accionId, recargar){
+  if (!tema || !tema.id || !accionId) return;
+  abrirVentana({
+    titulo: "Desvincular la mejora",
+    guia: tema.nombre,
+    cuerpo: '<p class="mini">El tema <b>' + escapar(tema.nombre) + '</b> vuelve a quedar ' +
+      'como “sin mejora” en el ranking. La mejora no se borra ni se descarta: sigue en ' +
+      'la hoja de vida con sus tareas. Si te equivocaste, puedes volver a enlazarla con ' +
+      '“Crear mejora” y eligiendo arriba la mejora que ya existe.</p>',
+    aceptar: "Desvincular",
+    alAceptar: async () => {
+      const r = await sb.from("accion_tema").delete()
+        .eq("accion_id", accionId).eq("tema_id", tema.id);
+      if (r.error) throw r.error;
+      avisar("Tema desvinculado de la mejora.", "", "#aviso-panel");
+      if (recargar) await recargar();
+    }
   });
 }
