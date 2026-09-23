@@ -144,22 +144,90 @@ function iniciales(correo){
 }
 
 function pintarPestanas(){
+  /* Se pintan una sola vez; al cambiar de sección solo se marca la activa
+     (así la curva de la barra lateral puede deslizarse entre pestañas). */
   $("#pestanas").innerHTML = SECCIONES.map(s => s.render
     ? '<button class="pestana" role="tab" data-seccion="' + s.id + '" aria-selected="' +
-      (s.id === seccionActiva) + '">' + escapar(s.nombre) + '</button>'
+      (s.id === seccionActiva) + '"><span class="pestana-txt">' + escapar(s.nombre) + '</span></button>'
     : '<button class="pestana" role="tab" aria-selected="false" aria-disabled="true" tabindex="-1" ' +
-      'title="Todavía no conectado">' + escapar(s.nombre) + '<span class="pronto">pronto</span></button>'
+      'title="Todavía no conectado"><span class="pestana-txt">' + escapar(s.nombre) +
+      '<span class="pronto">pronto</span></span></button>'
   ).join("");
+  if (!$(".pestana-curva")){
+    const curva = document.createElement("span");
+    curva.className = "pestana-curva";
+    curva.setAttribute("aria-hidden", "true");
+    $(".barra-superior").appendChild(curva);
+  }
+  marcarPestana();
 }
+
+/* Marca la pestaña activa y lleva la curva hasta ella */
+function marcarPestana(){
+  document.querySelectorAll("#pestanas .pestana[data-seccion]").forEach(b =>
+    b.setAttribute("aria-selected", String(b.dataset.seccion === seccionActiva)));
+  moverCurva();
+}
+
+function moverCurva(){
+  const curva = $(".pestana-curva");
+  const activa = $('#pestanas .pestana[aria-selected="true"]');
+  if (!curva || !activa) return;
+  const barra = $(".barra-superior").getBoundingClientRect();
+  const caja  = activa.getBoundingClientRect();
+  curva.style.transform = "translateY(" + (caja.top - barra.top + caja.height / 2 - 46) + "px)";
+}
+window.addEventListener("resize", moverCurva);
 
 function abrirSeccion(id){
   const s = SECCIONES.find(x => x.id === id);
   if (!s || !s.render) return;
   seccionActiva = id;
-  pintarPestanas();
+  marcarPestana();
   $("#vista").innerHTML = '<p class="vacio">Cargando…</p>';
   s.render();
 }
+
+/* Cifras que cuentan desde cero cuando aparecen (estilo Dashboard V2).
+   Lee el texto que pone cada módulo (p. ej. "4,6", "1.284", "87%"),
+   anima el número y termina dejando exactamente el texto original.
+   Si el módulo cambia el texto a mitad de camino, la animación se detiene. */
+const reducirMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function contar(el){
+  if (reducirMovimiento || el.dataset.contado) return;
+  const original = el.textContent.trim();
+  const m = original.match(/^([^\d-]*)(-?\d[\d.,]*)(.*)$/);
+  if (!m) return;
+  el.dataset.contado = "1";
+  const num = m[2];
+  // Decide qué es decimal y qué es miles, respetando cómo lo escribió el módulo
+  let decSep = "", milSep = "";
+  if (num.includes(",")) { decSep = ","; milSep = num.includes(".") ? "." : ""; }
+  else if (/\.\d{3}$/.test(num) && !/\.\d{3}\d/.test(num)) { milSep = "."; }
+  else if (num.includes(".")) { decSep = "."; }
+  const decimales = decSep ? num.split(decSep)[1].length : 0;
+  const limpio = num.split(milSep || "\u0000").join("").replace(decSep || "\u0000", ".");
+  const final = parseFloat(limpio);
+  if (!isFinite(final) || final === 0) return;
+  const pintar = v => {
+    let [ent, dec] = v.toFixed(decimales).split(".");
+    if (milSep) ent = ent.replace(/\B(?=(\d{3})+(?!\d))/g, milSep);
+    return m[1] + ent + (dec ? decSep + dec : "") + m[3];
+  };
+  const inicio = performance.now();
+  let escrito = original;
+  (function paso(ahora){
+    if (el.textContent !== escrito) return;              // otro código lo cambió: no pisar
+    const t = Math.min(1, (ahora - inicio) / 1100);
+    const e = 1 - Math.pow(1 - t, 3);
+    escrito = t < 1 ? pintar(final * e) : original;
+    el.textContent = escrito;
+    if (t < 1) requestAnimationFrame(paso);
+  })(inicio);
+}
+new MutationObserver(() => {
+  document.querySelectorAll("#vista .cifra:not([data-contado])").forEach(contar);
+}).observe($("#vista"), { childList: true, subtree: true });
 
 $("#pestanas").addEventListener("click", e => {
   const b = e.target.closest("button[data-seccion]");
