@@ -13,7 +13,7 @@ import * as hitos    from "./hitos.js";
 /* Aquí crece el panel: añade una sección con su render y listo. */
 const SECCIONES = [
   { id:"resenas", nombre:"Reseñas", render: resenas.render },
-{ id:"temas", nombre:"Temas pedidos", render: temas.render },
+{ id:"temas", nombre:"Temas pedidos", corto:"Temas", render: temas.render },
   { id:"mejoras",   nombre:"Mejoras",  render: mejoras.render },
   { id:"hitos",     nombre:"Hitos",    render: hitos.render },
   { id:"ventas",    nombre:"Ventas" },
@@ -142,7 +142,8 @@ function pintarPestanas(){
      (así la curva de la barra lateral puede deslizarse entre pestañas). */
   $("#pestanas").innerHTML = SECCIONES.map(s => s.render
     ? '<button class="pestana" role="tab" data-seccion="' + s.id + '" aria-selected="' +
-      (s.id === seccionActiva) + '"><span class="pestana-txt">' + escapar(s.nombre) + '</span></button>'
+      (s.id === seccionActiva) + '"><span class="pestana-txt"' +
+      (s.corto ? ' data-corto="' + escapar(s.corto) + '"' : '') + '>' + escapar(s.nombre) + '</span></button>'
     : '<button class="pestana" role="tab" aria-selected="false" aria-disabled="true" tabindex="-1" ' +
       'title="Todavía no conectado"><span class="pestana-txt">' + escapar(s.nombre) +
       '<span class="pronto">pronto</span></span></button>'

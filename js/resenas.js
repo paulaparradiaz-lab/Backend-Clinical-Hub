@@ -31,7 +31,10 @@ let seleccion = new Set();
 let visibles = [];
 let qInbox = "";
 let vista = "ranking";
-const f = { canal:"todos", dias:90, foco:"todos", etiqueta:"", pais:"", texto:"", notas:[] };
+/* En celular el filtro de periodo no se muestra, así que arranca en
+   Histórico (0); en escritorio, en 90 días como siempre. */
+const f = { canal:"todos", dias: window.matchMedia("(max-width: 899px)").matches ? 0 : 90,
+            foco:"todos", etiqueta:"", pais:"", texto:"", notas:[] };
 
 const CANALES = [["todos","Todo"], ["web","Sitio web"], ["whatsapp","WhatsApp"]];
 const RANGOS = [["7","1 semana"], ["30","1 mes"], ["90","90 días"], ["365","12 meses"], ["0","Histórico"]];
@@ -522,24 +525,21 @@ if (!meses.length){ $("#tendencia").innerHTML = '<p class="vacio">Sin datos en e
 const puntos = meses.map((m, i) => ({ i: i, mes: m.mes, n: m.n, con: m.con, prom: m.con ? m.suma / m.con : null }));
 const conValor = puntos.filter(p => p.prom != null);
 const W = Math.max(320, puntos.length * 74);
-const H = 190, ix = 34, dx = 18, ay = 26, ab = 34;
+const H = 196, ix = 34, dx = 18, ay = 34, ab = 34;   // ay: aire para el número sobre la bolita de 5
 const ancho = W - ix - dx, alto = H - ay - ab;
-const px = i => puntos.length === 1 ? ix + ancho / 2 : ix + (i / (puntos.length - 1)) * ancho;
+const margen = 28;   // los chupetes no se pegan al eje ni al borde
+const px = i => puntos.length === 1 ? ix + ancho / 2 : ix + margen + (i / (puntos.length - 1)) * (ancho - 2 * margen);
 const py = v => ay + (5 - v) / 4 * alto;
 
 let s = '<svg class="lineas" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Promedio de estrellas por mes">';
-s += '<rect class="banda verde" x="' + ix + '" y="' + py(5) + '" width="' + ancho + '" height="' + (py(4.5) - py(5)) + '"></rect>';
-s += '<rect class="banda azul" x="' + ix + '" y="' + py(4.5) + '" width="' + ancho + '" height="' + (py(3.5) - py(4.5)) + '"></rect>';
-s += '<rect class="banda roja" x="' + ix + '" y="' + py(3.5) + '" width="' + ancho + '" height="' + (py(1) - py(3.5)) + '"></rect>';
 [5, 4, 3, 2, 1].forEach(v => {
 s += '<line class="guia" x1="' + ix + '" y1="' + py(v) + '" x2="' + (W - dx) + '" y2="' + py(v) + '"></line>';
 s += '<text class="eje" x="' + (ix - 8) + '" y="' + (py(v) + 4) + '" text-anchor="end">' + v + '</text>';
 });
-for (let i = 1; i < puntos.length; i++){
-const a = puntos[i - 1], b = puntos[i];
-if (a.prom == null || b.prom == null) continue;
-s += '<line class="tramo" x1="' + px(a.i) + '" y1="' + py(a.prom) + '" x2="' + px(b.i) + '" y2="' + py(b.prom) + '" stroke="' + colorNota(b.prom) + '"></line>';
-}
+/* Chupetes: cada mes es una bolita con un tallo que baja hasta la base,
+   sin línea entre meses, para comparar cada mes de un vistazo. */
+s += '<line class="base" x1="' + ix + '" y1="' + py(1) + '" x2="' + (W - dx) + '" y2="' + py(1) + '"></line>';
+const R = 10;
 puntos.forEach(p => {
 const x = px(p.i);
 if (p.prom == null){
@@ -549,11 +549,12 @@ s += '<g class="punto"><circle class="punto-vacio" cx="' + x + '" cy="' + py(1) 
 const c = colorNota(p.prom);
 const fiesta = p.prom >= 4.5;
 s += '<g class="punto' + (fiesta ? ' festeja' : '') + '">';
+s += '<line class="tallo" x1="' + x + '" y1="' + py(1) + '" x2="' + x + '" y2="' + (py(p.prom) + R) + '" stroke="' + c + '"></line>';
 if (fiesta) s += '<circle class="aura" cx="' + x + '" cy="' + py(p.prom) + '" r="9" fill="' + c + '"></circle>';
-s += '<circle class="bolita" cx="' + x + '" cy="' + py(p.prom) + '" r="5.5" fill="' + c + '"></circle>';
-const anc = p.i === 0 ? "start" : (p.i === puntos.length - 1 ? "end" : "middle");
-const ax = p.i === 0 ? x - 4 : (p.i === puntos.length - 1 ? x + 4 : x);
-s += '<text class="valor" x="' + ax + '" y="' + (py(p.prom) - 12) + '" text-anchor="' + anc + '" fill="' + c + '">' + p.prom.toFixed(1) + '</text>';
+s += '<circle class="bolita" cx="' + x + '" cy="' + py(p.prom) + '" r="' + R + '" fill="' + c + '"></circle>';
+const anc = "middle";
+const ax = x;
+s += '<text class="valor" x="' + ax + '" y="' + (py(p.prom) - R - 8) + '" text-anchor="' + anc + '" fill="' + c + '">' + p.prom.toFixed(1) + '</text>';
 s += '<title>' + etqMes(p.mes) + ': ' + p.prom.toFixed(2) + ' con ' + p.con + ' calificaciones de ' + p.n + ' reseñas</title></g>';
 }
 s += '<text class="eje" x="' + x + '" y="' + (H - 12) + '" text-anchor="middle">' + etqMes(p.mes) + '</text>';
@@ -567,7 +568,9 @@ fiesta = '<div class="festejo"><span class="chispas"><i></i><i></i><i></i><i></i
 '<b>Mes en verde: ' + etqMes(ultimo.mes) + ' cerró en ' + ultimo.prom.toFixed(2) + '</b></div>';
 }
 $("#tendencia").innerHTML = s + fiesta +
-'<p class="mini">Promedio de estrellas por mes. Rojo por debajo de 3.5, azul entre 3.5 y 4.5, verde de 4.5 en adelante.</p>';
+'<div class="leyenda-notas">' + NIVELES.map(n =>
+  '<span><i style="background:' + colorNota(n[2]) + '"></i>' + n[0] + ' <b>' + n[1] + '</b></span>').join("") + '</div>' +
+'<p class="mini">Promedio de estrellas por mes.</p>';
 }
 
 /* Tus categorías, no solo las que ya tienen reseñas: si las vacías no
@@ -952,11 +955,18 @@ function nombreOrigen(o){
 return ORIGENES[o] || o;
 }
 
+/* Cuatro niveles: excelente, muy bien, regular y malo.
+   NIVELES arma la leyenda de la gráfica Mes a mes: nombre, rango y un
+   valor de muestra para sacar su color de colorNota. */
+const NIVELES = [["Excelente", "4.5 a 5", 4.75], ["Muy bien", "4 a 4.5", 4.25],
+                 ["Regular", "3.5 a 4", 3.75], ["Malo", "menos de 3.5", 3]];
+
 function colorNota(v){
 if (v == null) return "#8a8a8a";
-if (v < 3.5) return "#d64545";
+if (v < 3.5) return "#dc4a3d";
+if (v < 4) return "#e5a117";
 if (v < 4.5) return "#2f6fed";
-return "#18a058";
+return "#1fa15a";
 }
 
 function etqMes(m){
