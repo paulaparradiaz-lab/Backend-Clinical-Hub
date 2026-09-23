@@ -10,7 +10,7 @@
             sin leer del teléfono.
    RANKING  El reflejo de todo lo ya clasificado, también histórico.
             Tus temas ordenados por cuánta gente los pide. Desde
-            aquí se crea o enlaza la mejora, se renombra y se borra
+            aquí se crea, se enlaza y se desvincula la mejora, se renombra y se borra
             un tema. Un único filtro: con mejora / sin mejora.
 
    El texto del médico no se toca nunca: n8n lo guarda tal cual en
@@ -18,7 +18,7 @@
    clasificación vive aparte, en tema_canonico y tema_peticion.
 ============================================================ */
 import { sb, $, escapar, fecha, num, pct } from "./nucleo.js";
-import { ventanaMejoraTema } from "./temas-triage.js";
+import { ventanaMejoraTema, ventanaDesvincularTema } from "./temas-triage.js";
 import { cargarClasificacion, ventanaClasificar, ventanaVerTema, ventanaRenombrar,
          ventanaBorrarTema, descartarPeticiones, temaIdsDe, temaPorId, temasVivos,
          esDescartada } from "./temas-clasificar.js";
@@ -26,7 +26,6 @@ import { cargarClasificacion, ventanaClasificar, ventanaVerTema, ventanaRenombra
 let filas = [];
 let descartadas = 0;
 let cubiertos = new Set();
-let enlaces = new Map();   // peticion -> mejora a la que esta enlazada
 let mejoraDe = new Map();  // tema -> mejora del tema
 let seleccion = new Set();
 let visibles = [];
@@ -205,18 +204,19 @@ function pintarGlobo(n){
    Sin periodo y sin filtros de búsqueda: el panel es histórico.
    Una petición pertenece solo a los temas que tú le pusiste a
    mano. Sin tema = está en el inbox. Un tema se considera
-   cubierto si cualquiera de sus peticiones ya tiene mejora.
+   cubierto si tiene una mejora enlazada en accion_tema.
 ============================================================ */
 async function cargar(){
-  const [v, af] = await Promise.all([
+  const [v, at] = await Promise.all([
     sb.from("v_temas_pedidos").select("*").order("fecha", { ascending:false }),
-    sb.from("accion_feedback").select("accion_id,feedback_id")
+    sb.from("accion_tema").select("accion_id,tema_id")
   ]);
   const data = v.data, error = v.error;
-  enlaces = new Map();
-  ((af && af.data) || []).forEach(r => {
-    if (!enlaces.has(r.feedback_id)) enlaces.set(r.feedback_id, r.accion_id);
+  mejoraDe = new Map();
+  ((at && at.data) || []).forEach(r => {
+    if (!mejoraDe.has(r.tema_id)) mejoraDe.set(r.tema_id, r.accion_id);
   });
+  cubiertos = new Set(mejoraDe.keys());
   if (error){
     $("#bandeja").innerHTML = '<p class="vacio">No se pudieron leer las peticiones. ' +
       escapar(error.message) + '</p>';
@@ -227,25 +227,10 @@ async function cargar(){
   filas = todas.filter(x => !esDescartada(x));
   descartadas = todas.length - filas.length;
   seleccion = new Set();
-  recalcularCubiertos();
   pintar();
 }
 
-function recalcularCubiertos(){
-  cubiertos = new Set();
-  mejoraDe = new Map();
-  filas.forEach(x => {
-    const acc = enlaces.get(x.id);
-    if (!x.accionado && !acc) return;
-    temaIdsDe(x).forEach(id => {
-      cubiertos.add(id);
-      if (acc && !mejoraDe.has(id)) mejoraDe.set(id, acc);
-    });
-  });
-}
-
 function conMejora(x){
-  if (x.accionado) return true;
   return temaIdsDe(x).some(id => cubiertos.has(id));
 }
 
@@ -311,8 +296,9 @@ function accionDeTema(bt){
   const tema = temaPorId(temaId);
   if (!tema) return;
   const ids = peticionesDelTema(temaId).map(x => x.id);
-  if (bt.dataset.temaAccion === "mejora"){ ventanaMejoraTema(tema.nombre, ids, cargar); return; }
+  if (bt.dataset.temaAccion === "mejora"){ ventanaMejoraTema(tema, ids, cargar); return; }
   if (bt.dataset.temaAccion === "vermejora"){ irAMejora(temaId, tema, ids); return; }
+  if (bt.dataset.temaAccion === "desvincular"){ ventanaDesvincularTema(tema, mejoraDe.get(temaId), cargar); return; }
   if (bt.dataset.temaAccion === "renombrar"){ ventanaRenombrar(tema, cargar); return; }
   if (bt.dataset.temaAccion === "borrar"){ ventanaBorrarTema(tema, ids, cargar); return; }
 }
@@ -321,7 +307,7 @@ function accionDeTema(bt){
    resalta. Si por lo que sea no se encuentra, abre la ventana de crearla. */
 function irAMejora(temaId, tema, ids){
   const accionId = mejoraDe.get(temaId);
-  if (!accionId){ ventanaMejoraTema(tema.nombre, ids, cargar); return; }
+  if (!accionId){ ventanaMejoraTema(tema, ids, cargar); return; }
   document.dispatchEvent(new CustomEvent("ch-ir", {
     detail: { seccion:"mejoras", foco: accionId }
   }));
@@ -459,7 +445,9 @@ function pintarRanking(){
       '" title="Borrar tema" aria-label="Borrar tema">' + CANECA + '</button>';
     const botones = (cubierto && mejoraDe.get(o.id))
       ? '<button class="boton-chico" data-tema-accion="vermejora" data-clave="' + escapar(o.id) +
-        '">Ver mejora</button>'
+        '">Ver mejora</button> ' +
+        '<button class="boton-chico" data-tema-accion="desvincular" data-clave="' + escapar(o.id) +
+        '">Desvincular</button>'
       : '<button class="boton-chico" data-tema-accion="mejora" data-clave="' + escapar(o.id) +
         '">Crear mejora</button>';
     return '<tr>' +
@@ -485,7 +473,7 @@ function pintarRanking(){
     '. El texto subrayado abre los comentarios reales de ese tema y desde ahí puedes ' +
     'reclasificar cualquiera. El lápiz renombra el tema y la caneca lo borra, moviendo antes ' +
     'sus peticiones a donde tú digas. ' +
-    'La mejora se enlaza a todas las peticiones del tema. Las referencias son las guías que el médico ' +
+    'La mejora se enlaza al tema completo, no a cada petición: con Desvincular se la quitas al tema sin borrarla. Las referencias son las guías que el médico ' +
     'quiere que se citen, no son temas aparte.</p>';
 }
 
