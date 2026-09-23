@@ -26,39 +26,50 @@ try { const t = localStorage.getItem("ch-tema"); if (t) document.documentElement
    El lima queda como acento de marca para datos y foco.
    ============================================================ */
 :root{
-  --bg:#0b0b0d; --surface:#151518; --surface2:#1e1e22;
-  --border:rgba(255,255,255,.08); --border2:rgba(255,255,255,.16);
-  --ink:#f4f4f5; --muted:#c9c9cf; --faint:#94949c;
-  --brand:#addc00; --brand-ink:#c6f24a; --brand-bg:rgba(173,220,0,.12); --brand-line:rgba(173,220,0,.38);
-  --on-brand:#0b0b0d;
-  --warn:#f59486; --warn-bg:rgba(245,148,134,.13);
-  --ok:#6fd6a4;
-  --track:rgba(255,255,255,.07);
-  --s1:#f59486; --s2:#eea764; --s3:#e6bd4f; --s4:#6fd6a4; --s5:#addc00;
-  --sombra:0 24px 48px -18px rgba(0,0,0,.75),0 2px 6px rgba(0,0,0,.35);
-  --sombra-suave:0 10px 26px -16px rgba(0,0,0,.8);
-  --sel:#f4f4f5; --on-sel:#0b0b0d;
-  --side:#161619; --side-ink:#f4f4f5; --side-faint:#9a9aa3; --side-hover:rgba(255,255,255,.07);
-  --ease:cubic-bezier(.34,1.35,.64,1);
-  --sans:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --r:20px; --r-sm:8px;
-  color-scheme:dark;
-}
-[data-theme="light"]{
-  --bg:#eeeef1; --surface:#ffffff; --surface2:#f5f5f7;
+  /* Un solo tema: el claro. Estos son los mismos valores del bloque
+     [data-theme="light"] de abajo, puestos en :root para que el panel
+     nazca claro aunque el navegador traiga "dark" guardado. */
+  --bg:#f3f3f1; --surface:#ffffff; --surface2:#f6f7f4;
   --border:rgba(24,24,27,.08); --border2:rgba(24,24,27,.16);
   --ink:#18181b; --muted:#3f3f46; --faint:#6b6b76;
-  --brand:#addc00; --brand-ink:#4a6000; --brand-bg:rgba(173,220,0,.2); --brand-line:rgba(110,145,0,.5);
-  --on-brand:#18181b;
+  --brand:#c1e187; --brand-ink:#2a4927; --brand-bg:#eff7df; --brand-line:rgba(42,73,39,.28);
+  --on-brand:#2a4927;
   --warn:#c2412d; --warn-bg:rgba(194,65,45,.09);
   --ok:#207b52;
   --track:rgba(24,24,27,.06);
   --s1:#d9654d; --s2:#e0914a; --s3:#d4aa2f; --s4:#3fae7a; --s5:#9cc700;
   --sombra:0 24px 48px -20px rgba(24,24,27,.28),0 2px 6px rgba(24,24,27,.06);
   --sombra-suave:0 10px 24px -16px rgba(24,24,27,.35);
-  --sel:#18181b; --on-sel:#ffffff;
-  --side:#111113; --side-ink:#f4f4f5; --side-faint:#9a9aa3; --side-hover:rgba(255,255,255,.08);
+  --sel:#2a4927; --on-sel:#ffffff;
+  --side:#2a4927; --side-ink:#ffffff; --side-faint:#b9cdb2; --side-hover:rgba(255,255,255,.10);
+  --login-1:#ecfae1; --login-2:#e2f2d5; --login-3:#cfe7bb; --login-4:#4a6b34;
+  --login-fondo:#afd7a0; --login-tarjeta:#ffffff; --login-boton:#7ab447;
+  --login-ink:#18181b; --login-muted:#5b5b66; --login-campo:#eff0f2; --login-linea:#e3e6dd;
+  --login-sombra:0 18px 40px -18px rgba(40,60,30,.45);
+  --ease:cubic-bezier(.34,1.35,.64,1);
+  --sans:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --r:24px; --r-sm:10px;
+  color-scheme:light;
+}
+[data-theme="light"]{
+  --bg:#f3f3f1; --surface:#ffffff; --surface2:#f6f7f4;
+  --border:rgba(24,24,27,.08); --border2:rgba(24,24,27,.16);
+  --ink:#18181b; --muted:#3f3f46; --faint:#6b6b76;
+  --brand:#c1e187; --brand-ink:#2a4927; --brand-bg:#eff7df; --brand-line:rgba(42,73,39,.28);
+  --on-brand:#2a4927;
+  --warn:#c2412d; --warn-bg:rgba(194,65,45,.09);
+  --ok:#207b52;
+  --track:rgba(24,24,27,.06);
+  --s1:#d9654d; --s2:#e0914a; --s3:#d4aa2f; --s4:#3fae7a; --s5:#9cc700;
+  --sombra:0 24px 48px -20px rgba(24,24,27,.28),0 2px 6px rgba(24,24,27,.06);
+  --sombra-suave:0 10px 24px -16px rgba(24,24,27,.35);
+  --sel:#2a4927; --on-sel:#ffffff;
+  --login-1:#ecfae1; --login-2:#e2f2d5; --login-3:#cfe7bb; --login-4:#4a6b34;
+  --login-fondo:#afd7a0; --login-tarjeta:#ffffff; --login-boton:#7ab447;
+  --login-ink:#18181b; --login-muted:#5b5b66; --login-campo:#eff0f2; --login-linea:#e3e6dd;
+  --login-sombra:0 18px 40px -18px rgba(40,60,30,.45);
+  --side:#2a4927; --side-ink:#ffffff; --side-faint:#b9cdb2; --side-hover:rgba(255,255,255,.10);
   color-scheme:light;
 }
 
@@ -83,20 +94,28 @@ button{cursor:pointer;-webkit-tap-highlight-color:transparent}
 }
 
 /* Título: barra en píldora a la izquierda */
-.mast{position:relative;padding-left:18px}
+.mast{position:relative;padding-left:0}
+/* La barrita verde solo vive en la entrada; en el panel y en las ventanas
+   se apaga y el titulo recupera el margen izquierdo. */
 .mast::before{
-  content:""; position:absolute; left:0; top:5px; bottom:5px; width:6px; border-radius:999px;
+  content:""; display:none; position:absolute; left:0; top:5px; bottom:5px; width:6px; border-radius:999px;
   background:linear-gradient(180deg,var(--brand),var(--brand) 55%,transparent);
 }
-.mast h1{font-size:34px;font-weight:800;letter-spacing:-.035em;line-height:1.08;margin:4px 0 0}
+/* Titulos livianos y anchos, como la maqueta. La entrada conserva su
+   peso 800 mas abajo, que es el que aprobamos para el lettering. */
+.mast h1{font-size:34px;font-weight:400;letter-spacing:-.02em;line-height:1.1;margin:4px 0 0}
 
 /* ---------- Campos y botones ---------- */
+/* Cajas de texto en pildora, como el buscador de la referencia. El
+   textarea se queda con esquinas suaves: una pildora de varias lineas
+   se ve rara. */
 .campo{
-  width:100%; padding:12px 16px; margin-bottom:10px;
-  background:var(--surface2); border:1px solid var(--border); border-radius:14px;
+  width:100%; padding:12px 20px; margin-bottom:10px;
+  background:var(--surface2); border:1px solid var(--border); border-radius:999px;
   transition:border-color .2s,box-shadow .25s,background .2s;
 }
 .campo:hover{border-color:var(--border2)}
+textarea.campo,select.campo{border-radius:18px}
 .campo::placeholder{color:var(--faint)}
 .campo:focus{outline:none;background:var(--surface);border-color:var(--sel);box-shadow:0 0 0 4px var(--brand-bg)}
 .campo[disabled]{opacity:.5;cursor:not-allowed}
@@ -142,6 +161,110 @@ textarea.campo{min-height:90px;resize:vertical}
 .secreto{font-size:12.5px;color:var(--faint);margin:0 0 16px;word-break:break-all}
 .secreto code{font-family:var(--mono);color:var(--ink);background:var(--surface2);padding:3px 8px;border-radius:var(--r-sm)}
 .acceso-pie{margin-top:18px}
+
+/* ============================================================
+   ENTRADA PARTIDA — panel verde a la izquierda, tarjeta a la derecha.
+   Todo con CSS: el panel es #acceso::before, un pseudo-elemento que
+   ya existía. La tarjeta es blanca en los dos temas, como la referencia.
+   [hidden]{display:none!important} le sigue ganando a este display:grid.
+   ============================================================ */
+#acceso{
+  min-height:100dvh; padding:26px;
+  /* La tercera pista va vacia: junto al gap corre la tarjeta 48px
+     hacia adentro sin cambiarle el ancho ni mover la ilustracion. */
+  display:grid; grid-template-columns:1fr minmax(360px,460px) 22px;
+  gap:26px; align-items:stretch; justify-items:stretch;
+  /* La ilustracion ES el fondo de toda la pantalla: trae su propio verde y
+     deja libre el hueco de la derecha para la tarjeta. A 100% de ancho los
+     munecos quedan siempre en el mismo punto y nunca caen bajo la tarjeta. */
+  /* Tres capas, de adelante hacia atras: la marca arriba a la izquierda,
+     la ilustracion a todo el ancho y el verde de base. */
+  background:var(--login-fondo) url("ch-fondo.jpg") center center/100% auto no-repeat;
+}
+#acceso::before{
+  /* Ya no pinta nada: solo reserva la columna izquierda para que la
+     tarjeta quede a la derecha, sobre el hueco vacio de la ilustracion. */
+  content:""; min-height:420px;
+  background:none; border-radius:0; box-shadow:none;
+}
+#acceso .acceso-caja{
+  place-self:center stretch; max-width:none; width:100%;
+  display:flex; flex-direction:column; justify-content:center;
+  padding:44px 46px; border-radius:26px;
+  background:var(--login-tarjeta); border:0; box-shadow:var(--login-sombra);
+}
+#acceso .acceso-caja,#acceso .acceso-caja .mast h1,#acceso .secreto code{color:var(--login-ink)}
+#acceso .acceso-caja .mast h1{font-weight:800;letter-spacing:-.035em}
+#acceso .acceso-caja p.guia,#acceso .secreto{color:var(--login-muted)}
+/* Dentro de la tarjeta la marca va escrita, no pegada como imagen: el
+   mismo span de siempre, en grande. La fotito redonda sale, porque el
+   lettering ya cumple ese papel. */
+#acceso .acceso-marca{display:none}
+#acceso .acceso-caja .etiqueta{
+  display:block; font-size:33px; font-weight:800; letter-spacing:-.035em;
+  line-height:1.02; text-transform:none; margin:0;
+  color:#7d9c3c;   /* el verde del "hub": 3,14:1 sobre blanco, pasa AA */
+}
+#acceso .acceso-caja .etiqueta::before{content:"Clinical ";color:var(--login-ink)}
+#acceso .acceso-caja .etiqueta::after{
+  content:"Medicina basada en la evidencia y experiencia";
+  display:block; font-size:13px; font-weight:500; letter-spacing:0;
+  line-height:1.4; color:var(--login-muted); margin-top:5px;
+}
+/* aire amplio: la marca queda como membrete y el saludo abre el formulario */
+#acceso .acceso-caja .mast{margin-top:36px}
+#acceso .acceso-caja .mast{padding-left:18px}
+#acceso .acceso-caja .mast::before{display:block;background:var(--login-boton)}
+#acceso .acceso-caja .campo{
+  background:var(--login-campo); border:1.5px solid transparent; border-radius:999px;
+  height:52px; padding:0 24px; margin-bottom:16px; font-size:15px; color:var(--login-ink);
+}
+#acceso .acceso-caja .campo::placeholder{color:#a8abb2}
+#acceso .acceso-caja .campo:focus{background:#fff;border-color:var(--login-boton);box-shadow:0 0 0 4px rgba(122,180,71,.24)}
+/* Chrome repinta los campos autocompletados con su propio color, que no
+   es el nuestro. background-color no lo tapa; lo unico que lo cubre es una
+   sombra interior, y el texto se fuerza con -webkit-text-fill-color.
+   (Con color-scheme:dark ese relleno era gris oscuro con letra blanca.) */
+#acceso .acceso-caja .campo:-webkit-autofill,
+#acceso .acceso-caja .campo:-webkit-autofill:hover{
+  -webkit-text-fill-color:var(--login-ink);
+  -webkit-box-shadow:0 0 0 100px var(--login-campo) inset;
+  caret-color:var(--login-ink);
+}
+#acceso .acceso-caja .campo:-webkit-autofill:focus{
+  -webkit-text-fill-color:var(--login-ink);
+  -webkit-box-shadow:0 0 0 4px rgba(122,180,71,.24), 0 0 0 100px #fff inset;
+}
+/* el campo de los 6 digitos conserva su mono y su interletra */
+#acceso .acceso-caja .campo.codigo{font-family:var(--mono);font-size:24px;letter-spacing:.4em;text-align:center;padding:0 10px 0 24px}
+#acceso .acceso-caja textarea.campo{height:auto;padding:14px 20px;border-radius:20px}
+#acceso .acceso-caja .secreto code{background:var(--login-campo)}
+#acceso .acceso-caja .enlace{color:var(--login-muted)}
+#acceso .acceso-caja .enlace:hover{color:var(--login-ink)}
+/* El boton usa el verde de la referencia y sombras suaves: sobre blanco,
+   la sombra negra al 60% del boton general se veia como un golpe. */
+#acceso .acceso-caja .boton{
+  background:var(--login-boton); color:var(--login-ink);
+  height:54px; border-radius:999px; font-size:16px; margin-top:6px;
+  box-shadow:0 10px 22px -12px rgba(50,80,25,.6);
+}
+#acceso .acceso-caja .boton:hover{box-shadow:0 14px 26px -12px rgba(50,80,25,.65)}
+#acceso .acceso-caja .boton:active{box-shadow:0 4px 9px -5px rgba(50,80,25,.55)}
+#acceso .acceso-caja .boton.secundario{background:#fff;color:var(--login-ink);border-color:var(--login-linea);box-shadow:none}
+#acceso .acceso-caja .boton[disabled]{opacity:.5}
+#acceso .acceso-caja .aviso.ok{color:#207b52}
+#acceso .acceso-caja .aviso.mal{color:#bb1c1c}
+#acceso .qr{box-shadow:inset 0 0 0 1px var(--login-linea)}
+
+/* ---------- Entrada en pantallas angostas: la tarjeta sola ---------- */
+@media (max-width:860px){
+  #acceso{
+    grid-template-columns:1fr; padding:18px; place-items:center;
+    background:var(--login-fondo);
+  }
+  #acceso::before{display:none}
+  #acceso .acceso-caja{max-width:440px;width:100%;padding:30px 24px}
+}
 
 /* ============================================================
    PANEL
@@ -230,6 +353,9 @@ textarea.campo{min-height:90px;resize:vertical}
 .menu-item .etiqueta{font-size:10px}
 .menu-item.peligro{color:var(--warn)}
 .menu-item.peligro:hover{background:var(--warn-bg)}
+/* Un solo tema: el boton de cambiar tema se oculta (el JS lo sigue
+   encontrando, solo que no se ve). */
+#cambiar-tema{display:none}
 .menu-sep{height:1px;background:var(--border);margin:6px 0}
 
 /* ---------- Contenido ---------- */
@@ -239,13 +365,13 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .filtros{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .filtros-fila{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:18px}
 .chip{
-  padding:7px 15px;border-radius:999px;font-size:13px;font-weight:500;
+  padding:8px 18px;border-radius:999px;font-size:13px;font-weight:450;
   background:var(--surface);border:1px solid var(--border);color:var(--muted);
   transition:background .35s var(--ease),color .25s,border-color .2s,transform .3s var(--ease);
 }
 .chip:hover{border-color:var(--border2);color:var(--ink)}
 .chip:active{transform:scale(.94)}
-.chip[aria-pressed="true"]{background:var(--sel);border-color:var(--sel);color:var(--on-sel);font-weight:600}
+.chip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand-line);color:var(--brand-ink);font-weight:500}
 
 .rejilla{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;margin-top:16px}
 .caja{
@@ -257,7 +383,9 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .reparto{display:flex;flex-direction:column;gap:10px}
 .fila{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px}
 .fila-etq{font-family:var(--sans);font-size:13.5px;font-weight:500;color:var(--muted);white-space:nowrap;min-width:34px;max-width:130px;overflow:hidden;text-overflow:ellipsis;transition:color .2s}
-.barra{height:22px;background:var(--track);border-radius:999px;overflow:hidden}
+/* 9px, como la maqueta. A 24 el radio de 999px convertia los valores
+   chicos en ovalos en vez de barras. */
+.barra{height:9px;background:var(--track);border-radius:999px;overflow:hidden}
 .barra span{display:block;height:100%;border-radius:999px;transition:width .8s var(--ease)}
 .fila-num{font-size:13px;color:var(--faint);white-space:nowrap;min-width:72px;text-align:right}
 .fila-num b{color:var(--ink);font-weight:700}
@@ -303,15 +431,18 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .tarjetas{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-top:18px}
 .tarjetas .dato{background:var(--surface);border:1px solid var(--border);box-shadow:var(--sombra-suave)}
 
+/* Botones chicos como la pestaña activa de la maqueta: relleno verde
+   claro, sin borde, tinta verde oscura. El padding sube de 6 a 7 para
+   compensar el borde que se fue y conservar la altura. */
 .boton-chico{
-  padding:6px 14px;border-radius:999px;border:1px solid var(--border2);
-  background:var(--surface);font-size:12.5px;font-weight:500;color:var(--muted);
+  padding:8px 20px;border-radius:999px;border:0;
+  background:var(--brand);font-size:13px;font-weight:500;color:var(--brand-ink);
   transition:background .35s var(--ease),color .2s,border-color .2s,transform .3s var(--ease);
 }
-.boton-chico:hover{border-color:var(--sel);color:var(--ink)}
+.boton-chico:hover{background:#b2d974;color:var(--brand-ink)}
 .boton-chico:active{transform:scale(.94)}
 .boton-chico[disabled]{opacity:.45;cursor:not-allowed}
-.boton-chico.activo{background:var(--sel);border-color:var(--sel);color:var(--on-sel);font-weight:600}
+.boton-chico.activo{background:var(--sel);color:var(--on-sel);font-weight:600}
 
 .etq{
   display:inline-block;font-family:var(--sans);font-size:11.5px;font-weight:600;letter-spacing:0;
@@ -336,6 +467,57 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .tabla tr:last-child td{border-bottom:none}
 
 .comentario-pie{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-top:12px}
+
+/* ============================================================
+   RESEÑAS — la lista como un chat de dos lados
+   Lo que escribió el medico entra por la izquierda, en un globo
+   blanco; lo que uno hace con la resena responde por la derecha.
+   Cada resena vive sobre su propia banda gris, y el aire entre
+   bandas es lo que marca donde empieza y donde termina cada una.
+   Todo cuelga de #comentarios: el inbox (#bandeja) usa las mismas
+   clases y se queda tal cual estaba.
+   ============================================================ */
+#comentarios{display:flex;flex-direction:column;gap:12px}
+#comentarios .comentario{
+  display:flex; flex-direction:column;
+  background:var(--surface2);
+  border:0; border-left-width:0; border-bottom:0;
+  border-radius:18px; padding:16px 18px;
+}
+/* La regla global de :hover le cambia el redondeo a la tarjeta vieja.
+   Aqui la banda ya es gris, asi que solo hay que dejarle su forma. */
+#comentarios .comentario:hover{background:var(--surface2);border-radius:18px}
+#comentarios .comentario-meta{margin-bottom:8px}
+/* Las pastillas vienen con fondo var(--surface2), el mismo de la banda:
+   sobre gris se pierden. Aqui pasan a blanco para que recorten. La de
+   "con mejora" ya trae su propio verde y se queda como esta. */
+#comentarios .comentario-meta .nota,
+#comentarios .comentario .canal,
+#comentarios .comentario .etq:not(.lima){background:var(--surface)}
+/* El globo del comentario */
+#comentarios .comentario > p{
+  align-self:flex-start; max-width:76%;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:4px 18px 18px 18px; padding:14px 18px;
+}
+/* "Califico pero no escribio comentario": globo vacio, sin relleno */
+#comentarios .comentario > p.mini{background:none;border:1px dashed var(--border2);color:var(--faint)}
+/* "Ademas pidio un tema" no es un mensaje: es una nota al pie */
+#comentarios .comentario > p + p.mini{border:0;padding:8px 2px 0;max-width:100%}
+/* Las acciones responden por la derecha; las categorias se quedan
+   a la izquierda, con el mensaje. */
+#comentarios .comentario-pie{justify-content:flex-end;margin-top:8px}
+#comentarios .comentario-pie .etq:last-of-type{margin-right:auto}
+#comentarios .comentario-pie .boton-chico{
+  padding:7px 14px; border-radius:18px 4px 18px 18px;
+  background:var(--brand-bg); color:var(--brand-ink); font-weight:600;
+}
+#comentarios .comentario-pie .boton-chico:hover{background:var(--brand)}
+@media (max-width:760px){
+  /* solo suelta el ancho maximo que acabamos de ponerle al globo */
+  #comentarios .comentario > p{max-width:100%}
+}
+
 
 .accion{
   background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
@@ -395,42 +577,9 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .opcion input{margin-top:3px;accent-color:var(--sel)}
 .opcion .mini{margin:2px 0 0}
 
-/* ---------- Chiste de la entrada: foto → trabajo + tiempo → plata ----------
-   El estado final es el estilo base; las animaciones solo cuentan cómo se llega.
-   Con "reducir movimiento" se ve directamente el final. Clic para repetir. */
-.acceso-marca{display:flex;align-items:flex-start;justify-content:center;gap:8px;margin:4px 0 22px;cursor:pointer;width:100%}
-.acceso-marca .acceso-icono{margin-bottom:0}
-.chiste{flex:0 1 272px;min-width:0;height:auto;display:block;overflow:visible;color:var(--ink);margin-top:5px}
-.chiste .flecha{fill:none;stroke:var(--faint);stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-.chiste .trazo{stroke-dasharray:34;stroke-dashoffset:0}
-.chiste .icono{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.chiste .rot{font-family:var(--mono);font-size:8.5px;letter-spacing:.08em;fill:var(--faint);text-anchor:middle}
-.chiste .billete rect{fill:var(--brand)}
-.chiste .billete text{font-family:var(--sans);font-weight:800;font-size:10px;fill:var(--on-brand);text-anchor:middle;dominant-baseline:central}
-.chiste .pop,.chiste .billete,.chiste .punta{transform-box:fill-box;transform-origin:center}
-.chiste .aguja{transform-box:view-box;transform-origin:112px 22px}
-
-@keyframes ch-trazo{from{stroke-dashoffset:34}to{stroke-dashoffset:0}}
+.acceso-marca{display:flex;align-items:center;justify-content:center;gap:8px;margin:4px 0 18px;width:100%}
 @keyframes ch-aparece{from{opacity:0}to{opacity:1}}
 @keyframes ch-pop{0%{opacity:0;transform:scale(.6)}65%{opacity:1;transform:scale(1.04)}100%{opacity:1;transform:scale(1)}}
-@keyframes ch-gira{from{transform:rotate(0)}to{transform:rotate(1080deg)}}
-@keyframes ch-sale{0%{opacity:0;transform:translate(-44px,6px) scale(.3)}100%{opacity:1}}
-@keyframes ch-flota{0%,100%{translate:0 0}50%{translate:0 -3px}}
-
-.chiste.play .t1{animation:ch-trazo .45s ease-out .2s backwards}
-.chiste.play .p1{animation:ch-aparece .15s linear .6s backwards}
-.chiste.play .trabajo{animation:ch-pop .45s var(--ease) .7s backwards}
-.chiste.play .mas{animation:ch-aparece .2s linear .95s backwards}
-.chiste.play .tiempo{animation:ch-pop .45s var(--ease) 1.05s backwards}
-.chiste.play .aguja{animation:ch-aparece .15s linear 1.15s backwards,ch-gira 1.1s cubic-bezier(.3,0,.2,1) 1.3s backwards}
-.chiste.play .r1{animation:ch-aparece .3s linear .9s backwards}
-.chiste.play .r2{animation:ch-aparece .3s linear 1.25s backwards}
-.chiste.play .t2{animation:ch-trazo .45s ease-out 2.15s backwards}
-.chiste.play .p2{animation:ch-aparece .15s linear 2.55s backwards}
-.chiste.play .b1{animation:ch-sale .45s cubic-bezier(.2,.9,.3,1.3) 2.65s backwards,ch-flota 2.4s ease-in-out 3.4s infinite}
-.chiste.play .b2{animation:ch-sale .45s cubic-bezier(.2,.9,.3,1.3) 2.8s backwards,ch-flota 2.1s ease-in-out 3.6s infinite}
-.chiste.play .b3{animation:ch-sale .45s cubic-bezier(.2,.9,.3,1.3) 2.95s backwards,ch-flota 2.7s ease-in-out 3.8s infinite}
-.chiste.play .r3{animation:ch-aparece .3s linear 3.1s backwards}
 
 /* Pestaña Feedback: filtros activos, grafica de lineas y celebracion */
 .filtros-fila{align-items:center}
@@ -438,8 +587,8 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .etiqueta.sub{display:block;margin:16px 0 4px}
 .tabla tr.pinchable{cursor:pointer}
 .tabla tr.pinchable:not(.activa):hover td{background:var(--surface2)}
-.tabla tr.pinchable:not(.activa):hover td:first-child{border-radius:12px 0 0 12px}
-.tabla tr.pinchable:not(.activa):hover td:last-child{border-radius:0 12px 12px 0}
+.tabla tr.pinchable:not(.activa):hover td:first-child{border-radius:14px 0 0 14px}
+.tabla tr.pinchable:not(.activa):hover td:last-child{border-radius:0 14px 14px 0}
 .tabla tr.activa td{background:var(--sel);color:var(--on-sel);font-weight:600;border-bottom-color:transparent}
 .tabla tr.activa td:first-child{border-radius:12px 0 0 12px}
 .tabla tr.activa td:last-child{border-radius:0 12px 12px 0}
@@ -465,7 +614,7 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .chispas i:nth-child(2){left:6px;background:#3b7bf0;animation-delay:.2s}
 .chispas i:nth-child(3){left:12px;background:#f2b705;animation-delay:.4s}
 .chispas i:nth-child(4){left:18px;background:#dc4f4f;animation-delay:.6s}
-.chispas i:nth-child(5){left:24px;background:#addc00;animation-delay:.8s}
+.chispas i:nth-child(5){left:24px;background:var(--brand);animation-delay:.8s}
 .chispas i:nth-child(6){left:9px;background:#f2b705;animation-delay:1s}
 @keyframes confeti{0%{transform:translateY(0) rotate(0deg);opacity:0}25%{opacity:1}100%{transform:translateY(-18px) rotate(220deg);opacity:0}}
 .activos{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:12px 0 2px}
@@ -478,8 +627,8 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .ficha.limpiar:hover{opacity:1;background:var(--surface2);color:var(--ink)}
 select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
 /* Subpestanas dentro de una pestana: Inbox / Ranking. Las dos pesan igual. */
-.subpestanas{display:flex;gap:4px;margin:22px 0 0;padding:5px;background:var(--surface2);border:1px solid var(--border);border-radius:999px}
-.subpestana{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--sans);font-size:13.5px;font-weight:600;letter-spacing:-.005em;text-transform:none;color:var(--faint);background:transparent;border:none;border-radius:999px;padding:10px 12px;margin-bottom:0;transition:background .4s var(--ease),color .3s,transform .3s var(--ease),box-shadow .3s}
+.subpestanas{display:flex;width:fit-content;max-width:100%;gap:4px;margin:22px 0 0;padding:5px;background:var(--surface2);border:1px solid var(--border);border-radius:999px}
+.subpestana{flex:0 0 auto;min-width:0; display:flex;align-items:center;justify-content:center;gap:8px;font-family:var(--sans);font-size:13.5px;font-weight:500;letter-spacing:-.005em;text-transform:none;color:var(--faint);background:transparent;border:none;border-radius:999px;padding:10px 24px;margin-bottom:0;transition:background .4s var(--ease),color .3s,transform .3s var(--ease),box-shadow .3s}
 .subpestana:hover{color:var(--ink)}
 .subpestana:active{transform:scale(.97)}
 .subpestana[aria-selected="true"]{color:var(--ink);background:var(--surface);box-shadow:0 6px 16px -10px rgba(0,0,0,.6),0 0 0 1px var(--border)}
@@ -552,14 +701,14 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
   }
   .pestana{
     position:relative; width:44px; height:44px; padding:0; gap:0; justify-content:center;
-    border-radius:12px; color:var(--side-faint); background:transparent;
+    border-radius:50%; color:var(--side-faint); background:transparent;
     transition:color .3s,background .3s,transform .5s cubic-bezier(.34,1.35,.64,1),box-shadow .3s;
   }
   .pestana::before{width:20px;height:20px}
   .pestana:hover{color:#ffffff;background:transparent}
   .pestana:active{transform:scale(.92)}
   .pestana[aria-selected="true"]{
-    color:#111113; background:#ffffff; transform:translateX(9px);
+    color:var(--brand-ink); background:var(--brand); transform:translateX(9px);
     box-shadow:0 8px 18px -10px rgba(0,0,0,.9);
   }
   .pestana[aria-selected="true"]:active{transform:translateX(9px) scale(.94)}
@@ -585,7 +734,7 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
   .usuario-boton:hover{border-color:rgba(255,255,255,.35)}
   .usuario-boton[aria-expanded="true"]{border-color:#ffffff}
   .barra-superior .usuario-correo,.barra-superior .usuario-flecha{display:none}
-  .barra-superior .avatar{width:34px;height:34px;background:#ffffff;color:#111113}
+  .barra-superior .avatar{width:34px;height:34px;background:var(--brand);color:var(--brand-ink)}
   .menu{top:auto;bottom:0;left:calc(100% + 16px);right:auto;width:250px;color:var(--ink);transform-origin:bottom left}
 
   main{padding-top:38px}
@@ -602,7 +751,7 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
 .caja:hover{box-shadow:0 18px 34px -22px rgba(0,0,0,.45)}
 
 /* Barras: crecen desde la izquierda, una tras otra */
-.barra{height:24px}
+.barra{height:9px}
 .barra span{transform-origin:left center;animation:ch-crece .9s cubic-bezier(.34,1.3,.64,1) both}
 .reparto > .fila:nth-child(2) .barra span{animation-delay:.05s}
 .reparto > .fila:nth-child(3) .barra span{animation-delay:.1s}
@@ -620,12 +769,135 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
 .lineas .valor{animation:ch-aparece .4s ease 1.3s both}
 @keyframes ch-dibuja{from{stroke-dashoffset:2400}to{stroke-dashoffset:0}}
 
-/* Subpestañas como el selector de panel del V2: píldora oscura */
-.subpestanas{background:#18181b;border-color:#18181b;box-shadow:0 12px 24px -12px rgba(0,0,0,.55)}
-.subpestana{color:#8b8b95}
-.subpestana:hover{color:#ffffff}
-.subpestana[aria-selected="true"]{background:#ffffff;color:#18181b;box-shadow:0 6px 14px -8px rgba(0,0,0,.6)}
-.subpestana[aria-selected="true"] .globo{background:#18181b;color:#ffffff}
+/* Subpestañas: la misma pildora, ahora en el verde del riel (--side) */
+.subpestanas{background:var(--surface);border-color:var(--border);box-shadow:var(--sombra-suave)}
+.subpestana{color:var(--faint)}
+.subpestana:hover{color:var(--ink)}
+.subpestana[aria-selected="true"]{background:var(--brand);color:var(--brand-ink);box-shadow:none}
+.subpestana[aria-selected="true"] .globo{background:var(--brand-ink);color:#ffffff}
+
+
+/* ============================================================
+   RESEÑAS — filtros en una sola linea.
+   Quedan cuatro: Fuente, Periodo, Reseñas y Pais. Los tres
+   primeros son grupos de chips que se ven colapsados (solo el
+   rotulo y la opcion elegida) y se despliegan hacia abajo al
+   enfocarlos, con clic o con el tabulador. Pais ya era un
+   desplegable nativo.
+   El grupo "Filtros", el desplegable de categorias y el buscador
+   quedan ocultos: siguen en el HTML y resenas.js los sigue
+   leyendo con su valor por defecto, asi que no filtran de mas.
+   ============================================================ */
+#panel-ranking:has(#f-canal){
+  display:grid; grid-template-columns:auto auto auto auto 1fr;
+  gap:12px 18px; align-items:center;
+}
+#panel-ranking:has(#f-canal) > *{grid-column:1/-1}
+#panel-ranking:has(#f-canal) > :nth-child(1){grid-area:1/1/2/2}
+#panel-ranking:has(#f-canal) > :nth-child(2){grid-area:1/2/2/3}
+#panel-ranking:has(#f-canal) > :nth-child(3){grid-area:1/3/2/4}
+#panel-ranking:has(#f-canal) > :nth-child(4){grid-area:1/4/2/6}
+
+#panel-ranking:has(#f-canal) > .filtros-fila{position:relative;margin-top:0;gap:8px;flex-wrap:nowrap}
+#panel-ranking:has(#f-canal) > .filtros-fila > .rotulo{min-width:0;font-size:12px}
+#panel-ranking:has(#f-canal) > .filtros-fila > .rotulo::after{content:" ⌄";color:var(--faint)}
+
+/* la cuarta fila se queda solo con Pais */
+#panel-ranking > .filtros-fila:nth-child(4) > .rotulo:first-child,
+#panel-ranking > .filtros-fila:nth-child(4) > #f-foco,
+#panel-ranking > .filtros-fila:nth-child(4) > #f-etiqueta,
+#panel-ranking > .filtros-fila:nth-child(4) > .buscador{display:none}
+#panel-ranking > .filtros-fila:nth-child(4) > .campo.compacto{margin-bottom:0;width:auto}
+
+/* Colapsado: solo la opcion elegida. La caja mide siempre lo mismo,
+   abierta o cerrada, y por eso desplegar no corre nada de la barra. */
+#panel-ranking:has(#f-canal) .filtros{position:relative;width:152px;height:38px;align-items:center}
+#panel-ranking:has(#f-canal) .filtros .chip{display:none;flex:none;height:38px;align-items:center}
+#panel-ranking:has(#f-canal) .filtros .chip[aria-pressed="true"]{display:flex}
+
+/* Desplegado: columna que se desborda hacia abajo. order:-1 manda la
+   elegida al tope, asi la pastilla verde nunca se despega del rotulo,
+   este donde este dentro del HTML. */
+#panel-ranking:has(#f-canal) .filtros-fila.abierto .filtros,
+#panel-ranking:has(#f-canal) .filtros-fila:has(.chip:focus-visible) .filtros{
+  /* nowrap es imprescindible: .filtros trae flex-wrap:wrap de su regla
+     base, y en columna eso reparte las opciones en columnas paralelas
+     en vez de ponerlas una debajo de otra. */
+  overflow:visible; flex-direction:column; flex-wrap:nowrap;
+  align-items:stretch; gap:4px; z-index:30;
+}
+#panel-ranking:has(#f-canal) .filtros-fila.abierto .filtros .chip,
+#panel-ranking:has(#f-canal) .filtros-fila:has(.chip:focus-visible) .filtros .chip{position:relative;z-index:1;display:flex}
+#panel-ranking:has(#f-canal) .filtros-fila.abierto .filtros .chip[aria-pressed="true"],
+#panel-ranking:has(#f-canal) .filtros-fila:has(.chip:focus-visible) .filtros .chip[aria-pressed="true"]{order:-1}
+#panel-ranking:has(#f-canal) .filtros-fila.abierto .filtros .chip:not([aria-pressed="true"]),
+#panel-ranking:has(#f-canal) .filtros-fila:has(.chip:focus-visible) .filtros .chip:not([aria-pressed="true"]){
+  border-color:transparent; background:none;
+}
+#panel-ranking:has(#f-canal) .filtros-fila.abierto .filtros .chip:not([aria-pressed="true"]):hover,
+#panel-ranking:has(#f-canal) .filtros-fila:has(.chip:focus-visible) .filtros .chip:not([aria-pressed="true"]):hover{
+  background:var(--surface2);
+}
+/* El panel de atras. Su alto viene de --alto, que resenas.js escribe
+   al pintar cada grupo, segun cuantas opciones trae. */
+#panel-ranking:has(#f-canal) .filtros-fila.abierto .filtros::before,
+#panel-ranking:has(#f-canal) .filtros-fila:has(.chip:focus-visible) .filtros::before{
+  content:""; position:absolute; left:-10px; right:-10px; top:-10px; height:var(--alto);
+  background:var(--surface); border:1px solid var(--border); border-radius:20px;
+  box-shadow:var(--sombra); z-index:0; animation:ch-aparece .18s ease;
+}
+/* El alto lo escribe resenas.js en --alto al pintar cada grupo, segun
+   cuantas opciones trae. Asi ninguna lista se queda con el panel corto
+   cuando crece: la de paises cambia sola con los datos. */
+#panel-ranking:has(#f-canal) > .filtros-fila:nth-child(4) > #f-paises{width:auto;min-width:152px}
+
+/* De las seis tarjetas de arriba quedan Promedio y Calificaciones.
+   resenas.js las pinta siempre en el mismo orden, por eso nth-child. */
+#kpis > :nth-child(n+3){display:none}
+/* y el comparativo contra el periodo anterior, dentro de Promedio */
+#kpis .delta{display:none}
+#kpis{grid-template-columns:repeat(auto-fit,minmax(180px,260px))}
+
+/* ============================================================
+   RANKING DE TEMAS — resumen, filtros y tabla como una sola pieza.
+   #panel-ranking ya envuelve a los tres, asi que la tarjeta pasa a
+   ser el y la .caja de adentro se vuelve transparente. Esa .caja
+   trae margin-top:14px en linea desde temas.js: no lo pisamos, lo
+   usamos como separacion.
+   ============================================================ */
+#panel-ranking{
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--r);
+  box-shadow:var(--sombra-suave); padding:20px 20px 22px; margin-top:16px;
+}
+#panel-ranking > .resumen-sub{float:right;margin:3px 0 0;font-size:12.5px}
+#panel-ranking > .filtros-fila{margin-top:0;padding-bottom:16px;border-bottom:1px solid var(--border2)}
+#panel-ranking > .caja{background:none;border:0;box-shadow:none;padding:0;clear:both}
+#panel-ranking > .caja > .fila-entre{margin-bottom:14px}
+
+/* La tabla en columnas de verdad: el lapiz y la caneca se van al borde
+   derecho de su celda en vez de quedar pegados a cada nombre, que es lo
+   que hacia que cayeran en diagonal. */
+#ranking .tabla{table-layout:fixed}
+#ranking .tabla th:nth-child(2),#ranking .tabla td:nth-child(2),
+#ranking .tabla th:nth-child(3),#ranking .tabla td:nth-child(3){width:72px;text-align:right}
+#ranking .tabla th:nth-child(4),#ranking .tabla td:nth-child(4){width:26%}
+#ranking .tabla th:nth-child(5),#ranking .tabla td:nth-child(5){width:112px}
+#ranking .tabla th:nth-child(6),#ranking .tabla td:nth-child(6){width:146px}
+#ranking .tabla td{vertical-align:middle}
+#ranking .tabla td .mini{margin:0}
+#ranking .tema-nombre{display:flex;align-items:center;gap:6px;font-weight:600;line-height:1.25}
+#ranking .tema-nombre .icono-btn{flex:none}
+#ranking .tema-nombre .icono-btn:first-of-type{margin-left:auto}
+#ranking .enlace-formas{margin-top:2px}
+#ranking .etq{display:inline-flex;justify-content:center;min-width:92px}
+#ranking .tabla .boton-chico{width:100%;justify-content:center}
+
+@media (max-width:760px){
+  #panel-ranking{padding:16px 14px 18px}
+  #panel-ranking > .resumen-sub{float:none;margin:0 0 12px}
+  #ranking .tabla{table-layout:auto}
+}
+
 
 @media (max-width:760px){
   .rejilla{grid-template-columns:1fr}
@@ -663,40 +935,13 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
      ============================================================ -->
 <section id="acceso">
   <div class="acceso-caja">
-    <div class="acceso-marca" id="chiste" title="Clic para verlo otra vez" aria-hidden="true">
+    <div class="acceso-marca" aria-hidden="true">
       <img class="acceso-icono" src="favicon.png" alt="" width="58" height="58" onerror="this.remove()">
-      <svg class="chiste play" viewBox="0 0 250 58">
-        <path class="flecha trazo t1" d="M4 22H38"/>
-        <path class="flecha punta p1" d="M33 17l5 5-5 5"/>
-
-        <g class="pop trabajo">
-          <rect class="icono" x="49" y="12" width="22" height="15" rx="2"/>
-          <path class="icono" d="M45 31H75"/>
-        </g>
-        <text class="rot r1" x="60" y="52">TRABAJO</text>
-
-        <path class="flecha mas" d="M86 22h6M89 19v6"/>
-
-        <g class="pop tiempo">
-          <circle class="icono" cx="112" cy="22" r="12"/>
-          <path class="icono" d="M112 22l5 3"/>
-        </g>
-        <path class="icono aguja" d="M112 22V13"/>
-        <text class="rot r2" x="112" y="52">TIEMPO</text>
-
-        <path class="flecha trazo t2" d="M134 22H168"/>
-        <path class="flecha punta p2" d="M163 17l5 5-5 5"/>
-
-        <g class="billete b1"><g transform="rotate(-10 190 24)"><rect x="177" y="16" width="26" height="15" rx="2"/><text x="190" y="23.5">$</text></g></g>
-        <g class="billete b2"><g transform="rotate(6 214 18)"><rect x="201" y="10" width="26" height="15" rx="2"/><text x="214" y="17.5">$</text></g></g>
-        <g class="billete b3"><g transform="rotate(-4 236 27)"><rect x="223" y="19" width="26" height="15" rx="2"/><text x="236" y="26.5">$</text></g></g>
-        <text class="rot r3" x="213" y="52">PLATA</text>
-      </svg>
     </div>
-    <span class="etiqueta">Sustancia Pro · Clinical Hub</span>
+    <span class="etiqueta">hub</span>
 
     <div id="paso-login" hidden>
-      <div class="mast"><h1>Entra al panel</h1></div>
+      <div class="mast"><h1>Bienvenido Cofounder</h1></div>
       <p class="guia">Correo y contraseña. Después te pedimos el código de tu app de autenticación.</p>
       <input class="campo" type="email" id="correo" placeholder="tu@correo.com" autocomplete="username" inputmode="email">
       <input class="campo" type="password" id="clave" placeholder="Contraseña" autocomplete="current-password">
