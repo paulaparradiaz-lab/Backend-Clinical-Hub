@@ -23,6 +23,8 @@ import { sb, $, estado, COLORES, escapar, fecha, num, pct,
   nombreEtiqueta } from "./nucleo.js";
 import { alternarRevisado, ventanaMejora, ventanaCategoria,
   descartarResenas } from "./triage.js";
+import { categoriaPorClave, ventanaNuevaCategoria,
+  ventanaRenombrarCategoria, ventanaBorrarCategoria } from "./categorias.js";
 
 let filas = [];
 let seleccion = new Set();
@@ -42,6 +44,12 @@ const GRUPOS = [{ clave:"promotor", nombre:"Promotores 4–5 ★", notas:["5","4
   { clave:"detractor", nombre:"Detractores 1–2 ★", notas:["2","1"], color:1 }];
 
 const DESCARTE = "sin_sentido";
+
+/* Iconos de las categorías: el lápiz renombra, la caneca borra */
+const LAPIZ = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18 10l-4-4L4 16v4z"/>' +
+'<path d="M13.5 6.5l4 4"/></svg>';
+const CANECA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M10 4h4"/>' +
+'<path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg>';
 
 /* ============================================================
    1. Armazón de la pestaña
@@ -126,7 +134,11 @@ para encontrar y agrupar: no esconde nada del histórico.</p>
 
 <div class="rejilla">
 <section class="caja">
-<span class="etiqueta">Tipo de problema</span><span class="mini">La categoría que tú le pusiste en el inbox</span>
+<div class="fila-entre">
+<span class="etiqueta">Tipo de problema</span>
+<button class="boton-chico" id="btn-nueva-cat">Nueva categoría</button>
+</div>
+<span class="mini">Tus categorías, ordenadas por cuánto se usan</span>
 <div id="etiquetas-top"></div>
 </section>
 <section class="caja">
@@ -152,8 +164,7 @@ para encontrar y agrupar: no esconde nada del histórico.</p>
 function conectar(){
 pintarChips();
 pintarSubpestanas();
-$("#f-etiqueta").innerHTML = '<option value="">Todas las categorías</option>' +
-estado.etiquetas.map(e => '<option value="' + e.clave + '">' + escapar(e.nombre) + '</option>').join("");
+pintarSelectCategorias();
 
 $("#subpestanas").addEventListener("click", e => {
 const b = e.target.closest("button[data-sub]");
@@ -178,7 +189,11 @@ const b = e.target.closest("[data-quitar]");
 if (!b) return;
 quitarFiltro(b.dataset.quitar, b.dataset.valor || "");
 });
+$("#btn-nueva-cat").addEventListener("click", () => ventanaNuevaCategoria(trasCambiarCatalogo));
+
 $("#etiquetas-top").addEventListener("click", e => {
+const bt = e.target.closest("button[data-cat-accion]");
+if (bt){ accionDeCategoria(bt); return; }
 const b = e.target.closest("[data-etiqueta]");
 if (!b) return;
 f.etiqueta = (f.etiqueta === b.dataset.etiqueta) ? "" : b.dataset.etiqueta;
@@ -484,30 +499,91 @@ $("#tendencia").innerHTML = s + fiesta +
 '<p class="mini">Promedio de estrellas por mes. Rojo por debajo de 3.5, azul entre 3.5 y 4.5, verde de 4.5 en adelante.</p>';
 }
 
-function pintarEtiquetas(lista){
+/* Tus categorías, no solo las que ya tienen reseñas: si las vacías no
+   aparecieran, no habría forma de renombrarlas ni de borrarlas desde
+   aquí. Las claves viejas que quedaron pegadas a alguna reseña también
+   salen, para poder limpiarlas. */
+function categoriasEnPantalla(lista){
 const mapa = new Map();
-const clasificados = lista.filter(x => (x.etiquetas || []).length).length;
 lista.forEach(x => (x.etiquetas || []).forEach(e => {
-const o = mapa.get(e) || { clave:e, n:0, suma:0, con:0, criticos:0, accionados:0 };
+const o = mapa.get(e) || { clave:e, n:0, suma:0, con:0, criticos:0 };
 o.n++;
 if (x.estrellas != null){ o.suma += x.estrellas; o.con++; if (x.estrellas <= 2) o.criticos++; }
-if (x.accionado) o.accionados++;
 mapa.set(e, o);
 }));
-const top = Array.from(mapa.values()).sort((a, b) => b.n - a.n).slice(0, 10);
-if (!top.length){
-$("#etiquetas-top").innerHTML = '<p class="vacio">Ninguna reseña categorizada en este periodo. Empieza por el inbox.</p>';
+estado.etiquetas.forEach(e => {
+if (!mapa.has(e.clave)) mapa.set(e.clave, { clave:e.clave, n:0, suma:0, con:0, criticos:0 });
+});
+return Array.from(mapa.values()).sort((a, b) => (b.n - a.n) ||
+nombreEtiqueta(a.clave).localeCompare(nombreEtiqueta(b.clave)));
+}
+
+function pintarEtiquetas(lista){
+const cats = categoriasEnPantalla(lista);
+const clasificados = lista.filter(x => (x.etiquetas || []).length).length;
+if (!cats.length){
+$("#etiquetas-top").innerHTML = '<p class="vacio">Todavía no tienes categorías. ' +
+'Crea la primera con el botón de arriba.</p>';
 return;
 }
-const tope = top[0].n;
-$("#etiquetas-top").innerHTML = top.map(t =>
-'<div class="fila pinchable" data-etiqueta="' + t.clave + '" role="button" tabindex="0">' +
+const tope = Math.max(1, cats[0].n);
+$("#etiquetas-top").innerHTML = cats.map(t =>
+'<div class="fila pinchable" data-etiqueta="' + escapar(t.clave) + '" role="button" tabindex="0">' +
 '<span class="fila-etq">' + escapar(nombreEtiqueta(t.clave)) + '</span>' +
-'<span class="barra"><span style="width:' + (t.n / tope * 100) + '%;background:' + (t.criticos > t.n / 2 ? "var(--s1)" : "var(--brand)") + '"></span></span>' +
+'<span class="barra"><span style="width:' + (t.n / tope * 100) + '%;background:' +
+(t.criticos > t.n / 2 ? "var(--s1)" : "var(--brand)") + '"></span></span>' +
 '<span class="fila-num tabular"><b>' + t.n + '</b> · ' + (t.con ? (t.suma / t.con).toFixed(1) + "★" : "—") + '</span>' +
+'<span style="display:inline-flex;gap:2px;margin-left:6px;flex:0 0 auto">' +
+'<button class="icono-btn" data-cat-accion="renombrar" data-clave="' + escapar(t.clave) +
+'" title="Renombrar categoría" aria-label="Renombrar categoría">' + LAPIZ + '</button>' +
+'<button class="icono-btn peligro" data-cat-accion="borrar" data-clave="' + escapar(t.clave) +
+'" title="Borrar categoría" aria-label="Borrar categoría">' + CANECA + '</button>' +
+'</span>' +
 '</div>').join("") +
 '<p class="mini">' + num(clasificados) + ' de ' + num(lista.length) +
-' reseñas categorizadas. Clic en un motivo para filtrar; la barra roja avisa que la mayoría son críticas.</p>';
+' reseñas categorizadas en este periodo. Clic en un motivo para filtrar; la barra roja avisa ' +
+'que la mayoría son críticas. El lápiz cambia el nombre y la caneca borra la categoría, ' +
+'moviendo antes sus reseñas a donde tú digas.</p>';
+}
+
+/* ============================================================
+   Administrar el catálogo de categorías
+   Igual que el ranking de temas: el lápiz renombra, la caneca
+   borra y el botón de la caja crea. Lo que toca Supabase vive en
+   categorias.js; aquí solo se repinta lo que quedó distinto.
+   ============================================================ */
+function pintarSelectCategorias(){
+const sel = $("#f-etiqueta");
+if (!sel) return;
+sel.innerHTML = '<option value="">Todas las categorías</option>' +
+estado.etiquetas.map(e => '<option value="' + escapar(e.clave) + '">' +
+escapar(e.nombre) + '</option>').join("");
+sel.value = f.etiqueta;
+}
+
+/* Si estabas filtrando por una categoría que acabas de borrar, se
+   suelta el filtro para no dejar la pantalla en blanco. */
+async function trasCambiarCatalogo(){
+if (f.etiqueta && !categoriaPorClave(f.etiqueta)) f.etiqueta = "";
+pintarSelectCategorias();
+await cargar();
+}
+
+function resenasCon(clave){
+return filas.filter(x => (x.etiquetas || []).indexOf(clave) > -1);
+}
+
+function accionDeCategoria(bt){
+const clave = bt.dataset.clave;
+const cat = categoriaPorClave(clave) ||
+{ clave: clave, nombre: nombreEtiqueta(clave), descripcion: "" };
+if (bt.dataset.catAccion === "renombrar"){
+ventanaRenombrarCategoria(cat, trasCambiarCatalogo);
+return;
+}
+if (bt.dataset.catAccion === "borrar"){
+ventanaBorrarCategoria(cat, resenasCon(clave), trasCambiarCatalogo);
+}
 }
 
 function pintarComentarios(lista){
