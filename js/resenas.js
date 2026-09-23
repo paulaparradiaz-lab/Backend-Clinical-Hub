@@ -532,13 +532,13 @@ $("#etiquetas-top").innerHTML = cats.map(t =>
 '<span class="fila-etq">' + escapar(nombreEtiqueta(t.clave)) + '</span>' +
 '<span class="barra"><span style="width:' + (t.n / tope * 100) + '%;background:' +
 (t.criticos > t.n / 2 ? "var(--s1)" : "var(--brand)") + '"></span></span>' +
-'<span class="fila-num tabular"><b>' + t.n + '</b> · ' + (t.con ? (t.suma / t.con).toFixed(1) + "★" : "—") + '</span>' +
-'<span style="display:inline-flex;gap:2px;margin-left:6px;flex:0 0 auto">' +
+'<span class="fila-num tabular"><b>' + t.n + '</b> · ' + (t.con ? (t.suma / t.con).toFixed(1) + "★" : "—") +
+'<span style="display:inline-flex;gap:2px;margin-left:8px;vertical-align:middle">' +
 '<button class="icono-btn" data-cat-accion="renombrar" data-clave="' + escapar(t.clave) +
 '" title="Renombrar categoría" aria-label="Renombrar categoría">' + LAPIZ + '</button>' +
 '<button class="icono-btn peligro" data-cat-accion="borrar" data-clave="' + escapar(t.clave) +
 '" title="Borrar categoría" aria-label="Borrar categoría">' + CANECA + '</button>' +
-'</span>' +
+'</span></span>' +
 '</div>').join("") +
 '<p class="mini">' + num(clasificados) + ' de ' + num(lista.length) +
 ' reseñas categorizadas en este periodo. Clic en un motivo para filtrar; la barra roja avisa ' +
