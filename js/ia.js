@@ -1,0 +1,189 @@
+/* ============================================================
+   CLINICAL HUB · DATOS DE LA IA
+   Lo que comparten Inbox y Métricas. Todo sale de las dos tablas
+   que llena la IA, nunca de las tablas viejas del panel:
+
+   feedback_prueba_clasificacion_por_ia  cada feedback ya clasificado.
+                                         Se lee por la vista v_ia_feedback
+                                         (fechas y estrellas de verdad,
+                                         listas separadas, sin correo).
+   categorias_para_ia                    catálogo de temas y de tipos de
+                                         mejora, con su nombre bonito.
+
+   El panel solo puede editar cuatro columnas de la primera tabla:
+   tipos, tema_slug, mejora_slug y estado. Lo demás es del médico.
+   ============================================================ */
+import { sb } from "./nucleo.js";
+
+const TABLA = "feedback_prueba_clasificacion_por_ia";
+
+export const TIPOS = [["tema_pedido", "Tema pedido"], ["mejora_tecnica", "Mejora técnica"]];
+export const RUIDO = "ruido";
+
+/* Catálogo: se lee una vez y se guarda aquí */
+export const catalogo = { temas: [], mejoras: [], nombres: new Map() };
+
+/* ============================================================
+   1. Lectura
+   ============================================================ */
+export async function cargarCatalogo(){
+  if (catalogo.temas.length) return;
+  const { data, error } = await sb.from("categorias_para_ia")
+    .select("slug, nombre, tipo, sinonimos").eq("activo", true).order("nombre");
+  if (error) throw error;
+  catalogo.temas   = (data || []).filter(c => c.tipo === "tema");
+  catalogo.mejoras = (data || []).filter(c => c.tipo === "mejora");
+  catalogo.nombres = new Map((data || []).map(c => [c.slug, c.nombre]));
+}
+
+export function nombreDe(slug){
+  return catalogo.nombres.get(slug) || slug;
+}
+
+export function nombreTipo(clave){
+  if (clave === "resena") return "Reseña";
+  const par = TIPOS.find(t => t[0] === clave);
+  return par ? par[1] : clave;
+}
+
+/* ============================================================
+   2. Escritura: clasificar
+   Cada fila guarda sus listas como texto separado por comas, igual
+   que las deja la IA, para que los dos escriban en el mismo formato.
+   La etiqueta "resena" no la decide el panel: si la fila la traía,
+   se conserva.
+   ============================================================ */
+export async function clasificar(filas, temas, mejoras){
+  const cambios = filas.map(x => {
+    const tipos = [];
+    if (temas.length) tipos.push("tema_pedido");
+    if (mejoras.length) tipos.push("mejora_tecnica");
+    if ((x.tipos || []).indexOf("resena") > -1) tipos.push("resena");
+    return sb.from(TABLA).update({
+      tipos: tipos.join(","),
+      tema_slug: temas.join(","),
+      mejora_slug: mejoras.join(","),
+      estado: "revisado"
+    }).eq("id", x.id).select("id");
+  });
+  const respuestas = await Promise.all(cambios);
+  const fallo = respuestas.find(r => r.error);
+  if (fallo) throw fallo.error;
+  /* Con RLS, una fila sin permiso no da error: simplemente no cambia. */
+  if (respuestas.some(r => !(r.data || []).length)){
+    throw new Error("row-level security: no se guardó");
+  }
+}
+
+/* Desetiquetar: le quita un tema a varias filas. Si una fila tenía
+   varios temas, conserva los demás. Si se queda sin tema y sin tipo de
+   mejora, no está clasificada en nada: vuelve al Inbox (por_revisar). */
+export async function quitarTema(filas, slug){
+  const cambios = filas.map(x => {
+    const temas = (x.temas || []).filter(t => t !== slug);
+    const mejoras = x.mejoras || [];
+    const tipos = (x.tipos || []).filter(t => t !== "tema_pedido" || temas.length);
+    const cambio = { tema_slug: temas.join(","), tipos: tipos.join(",") };
+    if (!temas.length && !mejoras.length) cambio.estado = "por_revisar";
+    return sb.from(TABLA).update(cambio).eq("id", x.id).select("id");
+  });
+  const respuestas = await Promise.all(cambios);
+  const fallo = respuestas.find(r => r.error);
+  if (fallo) throw fallo.error;
+  if (respuestas.some(r => !(r.data || []).length)) throw new Error("row-level security: no se guardó");
+}
+
+/* Devolver al Inbox: la fila vuelve a "por_revisar" para clasificarla de
+   nuevo. No se borra nada; al clasificarla, lo nuevo reemplaza lo de antes. */
+export async function devolverAlInbox(filas){
+  const ids = filas.map(x => x.id);
+  const { data, error } = await sb.from(TABLA).update({ estado: "por_revisar" }).in("id", ids).select("id");
+  if (error) throw error;
+  if ((data || []).length !== ids.length) throw new Error("row-level security: no se guardó");
+}
+
+/* Renombrar un tema: cambia solo el nombre bonito. El código (slug)
+   sigue igual, así la IA sigue clasificando con él. El nombre viejo se
+   guarda en los sinónimos para que la IA lo siga reconociendo. */
+export async function renombrarTema(slug, nuevo){
+  const actual = catalogo.temas.find(c => c.slug === slug) || { nombre: slug, sinonimos: "" };
+  const lista = String(actual.sinonimos || "").split("|").map(t => t.trim()).filter(Boolean);
+  const viejo = String(actual.nombre || "").trim();
+  if (viejo && viejo.toLowerCase() !== nuevo.trim().toLowerCase() &&
+      !lista.some(t => t.toLowerCase() === viejo.toLowerCase())) lista.push(viejo);
+  const { data, error } = await sb.from("categorias_para_ia")
+    .update({ nombre: nuevo.trim(), sinonimos: lista.join(" | ") })
+    .eq("slug", slug).eq("tipo", "tema").select("slug");
+  if (error) throw error;
+  if (!(data || []).length) throw new Error("row-level security: no se guardó");
+  catalogo.temas = [];   // el catálogo se vuelve a leer con el nombre nuevo
+}
+
+/* ============================================================
+   3. Mejoras (mejoras_ia) y su enlace con los temas (mejora_ia_tema)
+   Una mejora no se borra: para descartarla se cambia su estado.
+   Desvincular solo quita el enlace con el tema.
+   ============================================================ */
+export const ESTADOS = [["pendiente", "Pendiente"], ["en_curso", "En curso"],
+  ["hecha", "Hecha"], ["descartada", "Descartada"]];
+
+export function nombreEstado(e){
+  const par = ESTADOS.find(x => x[0] === e);
+  return par ? par[1] : e;
+}
+
+export async function cargarMejoras(){
+  const [m, e] = await Promise.all([
+    sb.from("mejoras_ia").select("*").order("creado_en", { ascending:false }),
+    sb.from("mejora_ia_tema").select("*")
+  ]);
+  if (m.error) throw m.error;
+  if (e.error) throw e.error;
+  return { mejoras: m.data || [], enlaces: e.data || [] };
+}
+
+export async function crearMejora(titulo, detalle){
+  const { data, error } = await sb.from("mejoras_ia")
+    .insert({ titulo: titulo, detalle: detalle || null }).select("id").single();
+  if (error) throw error;
+  return data.id;
+}
+
+export async function enlazarMejora(mejoraId, slug){
+  const { error } = await sb.from("mejora_ia_tema").insert({ mejora_id: mejoraId, tema_slug: slug });
+  if (error) throw error;
+}
+
+export async function desvincularMejora(mejoraId, slug){
+  const { data, error } = await sb.from("mejora_ia_tema").delete()
+    .eq("mejora_id", mejoraId).eq("tema_slug", slug).select("mejora_id");
+  if (error) throw error;
+  if (!(data || []).length) throw new Error("row-level security: no se guardó");
+}
+
+export async function editarMejora(mejoraId, cambios){
+  const { data, error } = await sb.from("mejoras_ia").update(cambios).eq("id", mejoraId).select("id");
+  if (error) throw error;
+  if (!(data || []).length) throw new Error("row-level security: no se guardó");
+}
+
+/* ============================================================
+   4. Ayudas de presentación
+   ============================================================ */
+const PAISES = { CO:"Colombia", MX:"México", PE:"Perú", ES:"España", CL:"Chile", EC:"Ecuador",
+  PA:"Panamá", US:"Estados Unidos", AR:"Argentina", BO:"Bolivia", BR:"Brasil", CR:"Costa Rica",
+  DO:"República Dominicana", GT:"Guatemala", HN:"Honduras", NI:"Nicaragua", PY:"Paraguay",
+  SV:"El Salvador", UY:"Uruguay", VE:"Venezuela" };
+
+export function nombrePais(c){
+  const k = String(c || "").toUpperCase();
+  return PAISES[k] || k;
+}
+
+const ORIGENES = { "whatsapp":"WhatsApp", "encuesta-modal":"Encuesta del sitio", "sitio-web":"Sitio web",
+  "buscador-sugerencia-tema":"Buscador · sugerencia", "buscador-sin-resultados":"Buscador · sin resultados",
+  "buscador-sin-resultados-libre":"Buscador · texto libre" };
+
+export function nombreOrigen(o){
+  return o ? (ORIGENES[o] || o) : "Sin origen";
+}

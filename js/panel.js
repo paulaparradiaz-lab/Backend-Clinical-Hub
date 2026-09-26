@@ -4,24 +4,18 @@
    Cada pestaña vive en su propio archivo.
    ============================================================ */
 import { sb, $, estado, escapar, avisar, ocupado, traducirError,
-         cargarCatalogos, cerrarVentana } from "./nucleo.js";
-import * as resenas from "./resenas.js";
-import * as temas from "./temas.js";
-import * as mejoras  from "./mejoras.js";
-import * as hitos    from "./hitos.js";
+         cerrarVentana } from "./nucleo.js";
+import * as feedback from "./pestana-feedback.js";
 
-/* Aquí crece el panel: añade una sección con su render y listo. */
+/* Aquí crece el panel: añade una sección con su render y listo.
+   Feedback lee solo las tablas de la IA (ver ia.js). */
 const SECCIONES = [
-  { id:"resenas", nombre:"Reseñas", render: resenas.render },
-{ id:"temas", nombre:"Temas pedidos", corto:"Temas", render: temas.render },
-  { id:"mejoras",   nombre:"Mejoras",  render: mejoras.render },
-  { id:"hitos",     nombre:"Hitos",    render: hitos.render },
-  { id:"ventas",    nombre:"Ventas" },
-  { id:"contenido", nombre:"Contenido" },
-  { id:"admin",     nombre:"Administrativo" }
+  { id:"feedback", nombre:"Feedback", render: feedback.render },
+  { id:"ventas",   nombre:"Ventas" },
+  { id:"hitos",    nombre:"Hitos" }
 ];
 
-let seccionActiva = "resenas";
+let seccionActiva = "feedback";
 let factorId = null;
 
 /* ============================================================
@@ -125,7 +119,6 @@ async function abrirPanel(sesion){
   $("#avatar").textContent = iniciales(correo);
   pintarTemaActual();
 
-  await cargarCatalogos();
   pintarPestanas();
   abrirSeccion(seccionActiva);
 }
