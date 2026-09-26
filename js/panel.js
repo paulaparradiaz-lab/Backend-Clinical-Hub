@@ -168,7 +168,7 @@ function moverCurva(){
   if (!curva || !activa) return;
   const caja = activa.getBoundingClientRect();
   if (menuAbajo.matches){
-    curva.style.transform = "translateX(" + (caja.left + caja.width / 2 - 46) + "px)";
+    curva.style.transform = "translateX(" + (caja.left + caja.width / 2 - curva.offsetWidth / 2) + "px)";
     return;
   }
   const barra = $(".barra-superior").getBoundingClientRect();
