@@ -4,8 +4,9 @@
    Feedback › Métricas; aquí solo se manejan:
 
    ESTADO       Pendiente, En curso, Completada o Descartada (un toque).
-   ENLACES      Los temas y las mejoras técnicas que atiende cada una,
-                con una × para desvincular (la mejora no se borra).
+   INDICADOR    La mejora global en la que impacta (Cantidad de temas,
+                Interfaz/estética…): se ve arriba y se cambia tocándolo.
+                Es lo que mide Impacto.
    PERSONAS     Una o varias por mejora, elegidas de los usuarios del
                 panel (función usuarios_panel): cada usuario nuevo
                 aparece solo.
@@ -15,17 +16,18 @@
    ============================================================ */
 import { sb, $, estado, escapar, fecha, num, abrirVentana, avisar, cerrarVentana,
   traducirError } from "./nucleo.js";
-import { catalogo, cargarCatalogo, cargarMejoras, nombreDe, nombreEstado, editarMejora,
+import { catalogo, cargarCatalogo, cargarMejoras, nombreDe, nombreEstado, editarMejora, RUIDO, colorIndicador,
+  enlazarMejora, desvincularMejora,
   cargarUsuarios, asignarPersona, quitarPersona } from "./ia.js";
 import { plural } from "./ia-ventanas.js";
-import { ventanaVerMejora, ventanaDesvincular } from "./mejora-ventanas.js";
+import { ventanaVerMejora, ventanaNuevaMejora } from "./mejora-ventanas.js";
 
 let mejoras = [];
 let enlaces = [];
 let personas = [];
 let usuarios = [];
 let cuenta = new Map();          // slug -> cuántos comentarios clasificados
-const f = { estado:"activas", persona:"todas" };
+const f = { estado:"todas", persona:"todas" };
 let escuchando = false;           // los avisos de fuera del menú se ponen una sola vez
 
 /* Dos desplegables: Estado y Responsable. "Activas" es lo que está por
@@ -36,7 +38,6 @@ const FILTRO_PERSONA = [["todas","Todas las personas"], ["mias","Mías"], ["sin"
 
 const FLECHA = '<svg class="desplegable-flecha" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
-const EQUIS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 
 /* ============================================================
    1. Armazón
@@ -46,7 +47,7 @@ export async function render(){
 <div class="cabecera cabecera-compacta">
   <div>
     <div class="mast"><span class="etiqueta">Lo que vamos a cambiar</span><h1>Mejoras</h1></div>
-    <p>Cambia el estado, desvincula temas o mejoras técnicas y asigna quién la hace.</p>
+    <p>Cambia el estado, desvincula temas o mejoras globales y asigna quién la hace.</p>
   </div>
   <button class="boton-recargar" id="btn-recargar" data-tip="Actualizar" aria-label="Actualizar">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 13A8.5 8.5 0 1 1 18 6.6L20.5 9"/><path d="M20.5 4v5h-5"/></svg>
@@ -59,6 +60,8 @@ export async function render(){
 <div class="desplegables" id="filtros-mejoras">
   <div class="desplegable" id="f-estado"></div>
   <div class="desplegable" id="f-persona"></div>
+  <button class="boton-chico boton-nueva" id="btn-nueva-mejora">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nueva mejora</button>
 </div>
 
 <div id="lista-mejoras" class="lista-mejoras"><p class="vacio">Cargando…</p></div>`;
@@ -94,6 +97,7 @@ export async function render(){
     window.addEventListener("resize", colocarGomas);
   }
   $("#lista-mejoras").addEventListener("click", alTocar);
+  $("#btn-nueva-mejora").addEventListener("click", () => ventanaNuevaMejora({ alCambiar: trasCambio }));
 
   await cargar();
 }
@@ -140,6 +144,16 @@ function esMejoraTecnica(slug){
   return catalogo.mejoras.some(c => c.slug === slug);
 }
 
+/* Los indicadores de una mejora: las mejoras globales a las que está
+   enlazada (si quedara algún tema viejo enlazado, no cuenta). */
+function temasDe(m){
+  return enlaces.filter(e => e.mejora_id === m.id).map(e => e.tema_slug).filter(t => !esMejoraTecnica(t));
+}
+
+function indicadoresDe(m){
+  return enlaces.filter(e => e.mejora_id === m.id).map(e => e.tema_slug).filter(esMejoraTecnica);
+}
+
 /* ============================================================
    3. Pintado
    ============================================================ */
@@ -170,11 +184,15 @@ function pintar(){
     num(cuentaDe("hecha")) + "</b> completadas";
 
   if (!mejoras.length){
-    $("#lista-mejoras").innerHTML = '<p class="vacio">Todavía no hay mejoras. Se crean desde Feedback › ' +
-      'Métricas, con «Crear mejora» en el ranking de temas o en el de mejoras técnicas.</p>';
+    $("#lista-mejoras").innerHTML = '<p class="vacio">Todavía no hay mejoras. Crea una con «Nueva mejora», ' +
+      'o desde Feedback › Métricas con «Crear mejora» en los rankings.</p>';
     return;
   }
-  const lista = mejoras.filter(m => porEstado(m) && porPersona(m));
+  /* Primero lo que está por hacer, luego lo completado y al final lo
+     descartado: al completar una mejora no se esconde, baja. */
+  const ORDEN = { en_curso:0, pendiente:1, hecha:2, descartada:3 };
+  const lista = mejoras.filter(m => porEstado(m) && porPersona(m))
+    .sort((a, b) => (ORDEN[a.estado] - ORDEN[b.estado]) || (b.id - a.id));
   if (!lista.length){
     $("#lista-mejoras").innerHTML = '<p class="vacio">Ninguna mejora cumple ese filtro. Prueba con Todas.</p>';
     return;
@@ -223,42 +241,38 @@ function marcarPaso(caja, estadoNuevo){
   moverGomaPaso(caja);
 }
 
-/* La tarjeta: arriba el tipo (según lo que tiene enlazado) y el
-   responsable; en medio el título y los pasos Pendiente → En curso →
-   Completada, que se tocan para cambiar el estado; abajo lo enlazado
-   con su × para desvincular, y Descartar / Recuperar. */
+/* La tarjeta: arriba el indicador (la mejora global en la que impacta)
+   y el responsable; en medio el título y los pasos Pendiente → En curso
+   → Completada, que se tocan para cambiar el estado; abajo el número,
+   la fecha y Descartar / Recuperar. */
 const PASOS = ["pendiente", "en_curso", "hecha"];
-const ICONO_TIPO = {
-  tec: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-.5-.5-2.5z"/></svg>',
-  tema: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5M9 7h6M9 11h4"/></svg>'
-};
+const ICONO_INDICADOR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>';
 const LAPIZ = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18 10l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>';
 const MAS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 
 function tarjeta(m){
-  const slugs = enlaces.filter(e => e.mejora_id === m.id).map(e => e.tema_slug);
-  const temas = slugs.filter(s => !esMejoraTecnica(s));
-  const tecnicas = slugs.filter(esMejoraTecnica);
+  const indicadores = indicadoresDe(m);
   const ps = personasDe(m);
   const id = m.id;
   const paso = PASOS.indexOf(m.estado);          // -1 si está descartada
 
-  const tipos =
-    (tecnicas.length ? '<span class="tipo-mejora tec">' + ICONO_TIPO.tec + 'Mejora técnica</span>' : '') +
-    (temas.length ? '<span class="tipo-mejora tema">' + ICONO_TIPO.tema + 'Petición de temas</span>' : '') +
-    (!slugs.length ? '<span class="tipo-mejora">Sin enlazar</span>' : '');
+  /* El indicador: la mejora global en la que impacta, con la flechita
+     en un círculo de su color. Todo el botón abre la ventana para
+     elegirlo o cambiarlo. */
+  const indicador = '<button type="button" class="indicador-mejora' + (indicadores.length ? '' : ' vacio') +
+      '" data-indicador="' + id + '" title="' + (indicadores.length ? "Cambiar indicador" : "Elegir indicador") + '">' +
+    '<span class="indicador-rotulo">Impacta en</span>' +
+    (indicadores.length
+      ? indicadores.map(s => '<span class="indicador-item" style="--c:' + colorIndicador(s) + '">' + ICONO_INDICADOR +
+          '<b>' + escapar(nombreDe(s)) + '</b></span>').join("")
+      : '<span class="indicador-item">' + ICONO_INDICADOR + '<b>Elegir indicador</b></span>') +
+  '</button>';
 
   /* Responsable: iniciales y nombre; todo el botón abre Asignar */
   const responsable = ps.length
     ? ps.map(u => '<span class="responsable"><span class="inicial" aria-hidden="true">' +
         escapar(nombreUsuario(u).slice(0, 1).toUpperCase()) + '</span>' + escapar(nombreUsuario(u)) + '</span>').join("")
     : '<span class="inicial vacia" aria-hidden="true">' + MAS + '</span><span class="sin-responsable">Asignar responsable</span>';
-
-  const chipEnlace = s =>
-    '<span class="chip-quitar">' + escapar(nombreDe(s)) +
-    ' <small>' + num(cuenta.get(s) || 0) + '</small>' +
-    '<button type="button" data-desvincular="' + escapar(s) + '" data-id="' + id + '" title="Desvincular" ' +
-    'aria-label="Desvincular ' + escapar(nombreDe(s)) + '">' + EQUIS + '</button></span>';
 
   const pasos = PASOS.map((e, i) =>
     '<button type="button" class="paso-mejora' + (paso > -1 && i <= paso ? ' hecho' : '') + (i === paso ? ' actual' : '') +
@@ -267,7 +281,7 @@ function tarjeta(m){
       escapar(nombreEstado(e)) + '</button>').join('<i class="paso-linea" aria-hidden="true"></i>');
 
   return '<article class="caja tarjeta-mejora" data-estado="' + escapar(m.estado) + '">' +
-    '<div class="tarjeta-mejora-top">' + tipos +
+    '<div class="tarjeta-mejora-top">' + indicador +
       '<button type="button" class="boton-responsable" data-asignar="' + id + '" title="Asignar responsable">' +
         responsable + '</button>' +
     '</div>' +
@@ -277,9 +291,9 @@ function tarjeta(m){
     '<div class="pasos-mejora" role="group" aria-label="Estado de la mejora">' +
       '<span class="goma-paso" aria-hidden="true"></span>' + pasos +
       (paso === -1 ? '<span class="descartada-marca">Descartada</span>' : '') + '</div>' +
+    (temasDe(m).length ? '<p class="mini tarjeta-mejora-tema">Atiende ' + (temasDe(m).length === 1 ? 'el tema' : 'los temas') +
+      ': <b>' + temasDe(m).map(t => escapar(nombreDe(t))).join(", ") + '</b></p>' : '') +
     '<div class="tarjeta-mejora-pie">' +
-      '<div class="chips-mejora">' + (slugs.length ? temas.concat(tecnicas).map(chipEnlace).join("")
-        : '<span class="mini">No atiende ningún tema ni mejora técnica</span>') + '</div>' +
       '<span class="mini tarjeta-mejora-id">#' + id + ' · ' + fecha(m.creado_en) + '</span>' +
       (paso === -1
         ? '<button class="enlace-descartar" data-estado="pendiente" data-id="' + id + '">Recuperar</button>'
@@ -329,16 +343,12 @@ function mejoraPorId(id){
 async function alTocar(e){
   const b = e.target.closest("button");
   if (!b) return;
-  const m = mejoraPorId(b.dataset.id || b.dataset.editar || b.dataset.asignar);
+  const m = mejoraPorId(b.dataset.id || b.dataset.editar || b.dataset.asignar || b.dataset.indicador);
   if (!m) return;
 
   if (b.dataset.editar){ ventanaVerMejora({ mejora: m, alCambiar: trasCambio }); return; }
+  if (b.dataset.indicador){ ventanaIndicador(m); return; }
   if (b.dataset.asignar){ ventanaAsignar(m); return; }
-  if (b.dataset.desvincular){
-    const s = b.dataset.desvincular;
-    ventanaDesvincular({ mejora: m, slug: s, que: esMejoraTecnica(s) ? "mejora técnica" : "tema", alCambiar: trasCambio });
-    return;
-  }
   /* El estado se guarda de una: se deshace igual de fácil. En los
      pasos, la goma viaja primero y la lista se repinta cuando termina. */
   if (b.dataset.estado){
@@ -396,5 +406,45 @@ function ventanaAsignar(m){
     if (elegidas.has(u)) elegidas.delete(u); else elegidas.add(u);
     b.setAttribute("aria-pressed", String(elegidas.has(u)));
     b.classList.toggle("recien", elegidas.has(u));
+  });
+}
+
+/* Indicador: las mejoras globales, se marcan una o varias. Al guardar
+   se enlazan las nuevas y se desvinculan las que se desmarcaron. */
+function ventanaIndicador(m){
+  const antes = indicadoresDe(m);
+  const elegidos = new Set(antes);
+  const globales = catalogo.mejoras.filter(c => c.slug !== RUIDO);
+  abrirVentana({
+    titulo: "Indicador de la mejora",
+    guia: "#" + m.id + " · " + m.titulo,
+    cuerpo:
+      '<p class="mini">¿En qué mejora global impacta? Es lo que mide la pestaña Impacto: si bajan las críticas ' +
+      'de ese indicador después de completarla. Puedes marcar más de uno.</p>' +
+      '<div class="bandeja-opciones" id="i-globales" style="max-height:50vh">' +
+      globales.map(c =>
+        '<button type="button" class="fila-opcion" data-slug="' + escapar(c.slug) + '" aria-pressed="' + elegidos.has(c.slug) + '">' +
+        '<span class="indicador-item" style="--c:' + colorIndicador(c.slug) + '">' + ICONO_INDICADOR +
+        '<span><b>' + escapar(c.nombre) + '</b><span class="mini">' + plural(cuenta.get(c.slug) || 0, "comentario", "comentarios") +
+        '</span></span></span><span class="marca-opcion" aria-hidden="true"></span></button>').join("") +
+      '</div>' +
+      '<p class="mini">¿No está? Créalo con «Nueva etiqueta» en Feedback › Métricas, en el ranking de mejoras globales.</p>',
+    aceptar: "Guardar",
+    alAceptar: async () => {
+      if (!elegidos.size){ avisar("Elige al menos un indicador.", "mal", "#aviso-forma"); return false; }
+      for (const s of elegidos) if (antes.indexOf(s) === -1) await enlazarMejora(m.id, s);
+      for (const s of antes) if (!elegidos.has(s)) await desvincularMejora(m.id, s);
+      cerrarVentana();
+      await trasCambio("Mejora #" + m.id + ": impacta en " + Array.from(elegidos).map(nombreDe).join(" y ") + ".");
+      return false;
+    }
+  });
+  $("#i-globales").addEventListener("click", e => {
+    const b = e.target.closest("button[data-slug]");
+    if (!b) return;
+    const s = b.dataset.slug;
+    if (elegidos.has(s)) elegidos.delete(s); else elegidos.add(s);
+    b.setAttribute("aria-pressed", String(elegidos.has(s)));
+    b.classList.toggle("recien", elegidos.has(s));
   });
 }

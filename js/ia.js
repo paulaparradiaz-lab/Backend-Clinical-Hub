@@ -17,7 +17,7 @@ import { sb } from "./nucleo.js";
 
 const TABLA = "feedback_prueba_clasificacion_por_ia";
 
-export const TIPOS = [["tema_pedido", "Tema pedido"], ["mejora_tecnica", "Mejora técnica"]];
+export const TIPOS = [["tema_pedido", "Tema pedido"], ["mejora_tecnica", "Mejora global"]];
 export const RUIDO = "ruido";
 
 /* Catálogo: se lee una vez y se guarda aquí */
@@ -29,11 +29,28 @@ export const catalogo = { temas: [], mejoras: [], nombres: new Map() };
 export async function cargarCatalogo(){
   if (catalogo.temas.length) return;
   const { data, error } = await sb.from("categorias_para_ia")
-    .select("slug, nombre, tipo, sinonimos").eq("activo", true).order("nombre");
+    .select("id, slug, nombre, tipo, sinonimos").eq("activo", true).order("nombre");
   if (error) throw error;
   catalogo.temas   = (data || []).filter(c => c.tipo === "tema");
   catalogo.mejoras = (data || []).filter(c => c.tipo === "mejora");
   catalogo.nombres = new Map((data || []).map(c => [c.slug, c.nombre]));
+}
+
+/* Color de cada indicador (mejora global). Sigue al indicador, nunca a
+   su puesto: los de hoy tienen el suyo fijo y los que se creen después
+   toman los siguientes en orden de creación. Es la paleta categórica
+   validada para daltonismo; el nombre siempre va escrito al lado. */
+const COLOR_FIJO = { cantidad_temas:"#2a78d6", ideas_innovadoras:"#eb6834", interfaz_estetica:"#1baf7a",
+  redaccion:"#eda100", soporte:"#e87ba4" };
+const COLOR_SIGUIENTE = ["#008300", "#4a3aa7"];
+const COLOR_OTRO = "#8a8a8a";   // si algún día hay más indicadores que colores
+
+export function colorIndicador(slug){
+  if (COLOR_FIJO[slug]) return COLOR_FIJO[slug];
+  const nuevos = catalogo.mejoras.filter(c => !COLOR_FIJO[c.slug] && c.slug !== RUIDO)
+    .sort((a, b) => a.id - b.id);
+  const i = nuevos.findIndex(c => c.slug === slug);
+  return i > -1 && i < COLOR_SIGUIENTE.length ? COLOR_SIGUIENTE[i] : COLOR_OTRO;
 }
 
 export function nombreDe(slug){
@@ -93,7 +110,7 @@ export async function quitarTema(filas, slug){
   if (respuestas.some(r => !(r.data || []).length)) throw new Error("row-level security: no se guardó");
 }
 
-/* Lo mismo con un tipo de mejora técnica: se le quita a sus comentarios
+/* Lo mismo con un tipo de mejora global: se le quita a sus comentarios
    y conservan lo demás. Sin tema ni mejora, vuelven al Inbox. */
 export async function quitarMejoraTecnica(filas, slug){
   const cambios = filas.map(x => {
@@ -119,7 +136,7 @@ export async function devolverAlInbox(filas){
   if ((data || []).length !== ids.length) throw new Error("row-level security: no se guardó");
 }
 
-/* Renombrar un tema o un tipo de mejora técnica: cambia solo el nombre bonito. El código (slug)
+/* Renombrar un tema o un tipo de mejora global: cambia solo el nombre bonito. El código (slug)
    sigue igual, así la IA sigue clasificando con él. El nombre viejo se
    guarda en los sinónimos para que la IA lo siga reconociendo. */
 export async function renombrarTema(slug, nuevo){
@@ -137,11 +154,27 @@ export async function renombrarTema(slug, nuevo){
   catalogo.temas = [];   // el catálogo se vuelve a leer con el nombre nuevo
 }
 
+/* Etiqueta nueva en el catálogo: un tema pedido (tipo "tema") o una
+   mejora global (tipo "mejora"). El código (slug) sale del nombre, sin
+   tildes ni espacios; si ya existe, se le pone un número al final. */
+export async function crearEtiqueta(tipo, nombre, sinonimos){
+  const base = nombre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60) || "etiqueta";
+  for (let i = 1; i <= 20; i++){
+    const slug = i === 1 ? base : base + "_" + i;
+    const { error } = await sb.from("categorias_para_ia")
+      .insert({ slug: slug, nombre: nombre.trim(), tipo: tipo, sinonimos: sinonimos || null });
+    if (!error){ catalogo.temas = []; return slug; }   // el catálogo se vuelve a leer con la nueva
+    if (error.code !== "23505") throw error;           // 23505: ese código ya existe, prueba el siguiente
+  }
+  throw new Error("No se pudo crear la etiqueta.");
+}
+
 /* ============================================================
    3. Mejoras (mejoras_ia), su enlace con los temas y las mejoras
-   técnicas (mejora_ia_tema) y sus personas (mejora_ia_persona).
+   globales (mejora_ia_tema) y sus personas (mejora_ia_persona).
    Una mejora no se borra: para descartarla se cambia su estado.
-   Desvincular solo quita el enlace con el tema o la mejora técnica.
+   Desvincular solo quita el enlace con el tema o la mejora global.
    ============================================================ */
 export const ESTADOS = [["pendiente", "Pendiente"], ["en_curso", "En curso"],
   ["hecha", "Completada"], ["descartada", "Descartada"]];
@@ -163,9 +196,9 @@ export async function cargarMejoras(){
   return { mejoras: m.data || [], enlaces: e.data || [], personas: p.data || [] };
 }
 
-/* De cada tema o mejora técnica, la mejora enlazada más reciente.
+/* De cada tema o mejora global, la mejora enlazada más reciente.
    El enlace (mejora_ia_tema) sirve para los dos: guarda el código del
-   catálogo, que no se repite entre temas y mejoras técnicas. */
+   catálogo, que no se repite entre temas y mejoras globales. */
 export function mejoraPorSlug(datos){
   const porId = new Map(datos.mejoras.map(m => [m.id, m]));
   const mapa = new Map();
@@ -175,16 +208,20 @@ export function mejoraPorSlug(datos){
   return mapa;
 }
 
-export async function crearMejora(titulo, detalle){
-  const { data, error } = await sb.from("mejoras_ia")
-    .insert({ titulo: titulo, detalle: detalle || null }).select("id").single();
+/* extra: estado, y para una mejora del pasado su fecha de completada
+   (completada_en) y de creación (creado_en), para que Impacto mida
+   desde el día en que de verdad se hizo. */
+export async function crearMejora(titulo, detalle, extra){
+  const fila = Object.assign({ titulo: titulo, detalle: detalle || null }, extra || {});
+  const { data, error } = await sb.from("mejoras_ia").insert(fila).select("id").single();
   if (error) throw error;
   return data.id;
 }
 
 export async function enlazarMejora(mejoraId, slug){
   const { error } = await sb.from("mejora_ia_tema").insert({ mejora_id: mejoraId, tema_slug: slug });
-  if (error) throw error;
+  /* 23505: ya estaba enlazada (una mejora que existía); no es un error */
+  if (error && error.code !== "23505") throw error;
 }
 
 export async function desvincularMejora(mejoraId, slug){

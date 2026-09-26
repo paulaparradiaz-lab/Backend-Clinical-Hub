@@ -498,11 +498,57 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 #mejoras-top .enlace-formas{margin:0;font-size:12px}
 #mejoras-top{gap:14px}
 /* PESTAÑA MEJORAS: una tarjeta por mejora con su estado, lo que
-   tiene enlazado (temas y mejoras técnicas) y sus personas. */
+   tiene enlazado (temas y mejoras globales) y sus personas. */
+/* PESTAÑA IMPACTO: una tarjeta por indicador con su gráfica de
+   críticas (en el color del indicador) y sus mejoras encima */
+.impacto-indicadores{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px;margin-top:14px}
+.impacto-indicador{
+  display:flex;flex-direction:column;gap:10px;min-width:0;padding:16px 16px 14px;border-radius:18px;
+  background:var(--surface2);border:1px solid transparent;
+  transition:transform .35s var(--ease),box-shadow .3s,border-color .2s;
+}
+.impacto-indicador:hover{transform:translateY(-3px);box-shadow:var(--sombra-suave);border-color:var(--border)}
+.impacto-indicador-cab{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.impacto-indicador-cab .indicador-item b{font-size:15.5px;font-weight:800;letter-spacing:-.015em}
+.impacto-indicador-cab .mini{margin:0}
+.impacto-indicador-cab .enlace-formas{margin-left:auto;font-size:12.5px}
+.impacto-grafica{display:block;width:100%;height:auto;overflow:visible;font-family:var(--sans)}
+.impacto-grafica .eje{font-size:10.5px;fill:var(--faint)}
+.impacto-grafica .guia{stroke:var(--border2);stroke-dasharray:3 5}
+.impacto-grafica .base{stroke:var(--border2)}
+.impacto-grafica .area{fill:var(--c);opacity:.16}
+.impacto-grafica .trazo{fill:none;stroke:var(--c);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.impacto-grafica .punto{fill:var(--c);stroke:var(--surface2);stroke-width:2}
+.impacto-grafica .franja{fill:var(--c);opacity:.09}
+.impacto-grafica .hito line{stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 3}
+.impacto-grafica .hito circle{fill:var(--ink)}
+.impacto-grafica .hito text{fill:var(--surface);font-size:10.5px;font-weight:700}
+.impacto-mejoras{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.impacto-mejoras li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;background:var(--surface)}
+.impacto-num{
+  display:grid;place-items:center;width:22px;height:22px;flex:none;border-radius:50%;
+  background:var(--ink);color:var(--surface);font-size:10.5px;font-weight:700;
+}
+.impacto-txt{display:flex;flex-direction:column;min-width:0;flex:1}
+.impacto-txt b{font-size:13.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.impacto-txt small{font-size:11.5px;color:var(--faint)}
+.impacto-res{flex:none;font-size:15px;font-weight:800;letter-spacing:-.02em;color:var(--faint);font-variant-numeric:tabular-nums}
+.impacto-res.baja{color:var(--brand-ink)}
+.impacto-res.sube{color:var(--warn)}
+.impacto-res.espera{font-size:12.5px;font-weight:600}
+.impacto-sin{margin:0}
+@media (max-width:600px){
+  .impacto-indicadores{grid-template-columns:minmax(0,1fr)}
+  .impacto-indicador{padding:14px 12px 12px}
+}
+
 .lista-mejoras{display:flex;flex-direction:column;gap:14px;margin-top:18px}
 /* Filtros de Mejoras: dos desplegables «Rótulo: elegido ⌄» */
 .desplegables{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px;position:relative;z-index:20}
 .desplegable{position:relative}
+/* Botón de crear, a la derecha de los filtros (Nueva mejora, Nueva etiqueta) */
+.boton-nueva{display:inline-flex;align-items:center;gap:6px;margin-left:auto;padding:8px 16px 8px 12px;font-weight:600}
+.boton-nueva svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
 .desplegable-boton{
   display:inline-flex;align-items:center;gap:8px;padding:8px 12px 8px 16px;border-radius:999px;
   border:1px solid var(--border);background:var(--surface);font-size:13.5px;color:var(--ink);
@@ -532,6 +578,26 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .tarjeta-mejora{display:flex;flex-direction:column;gap:10px;transition:transform .35s var(--ease),box-shadow .3s,border-color .2s}
 /* Como las tarjetas del dashboard: se elevan al pasar el mouse */
 .tarjeta-mejora:hover{transform:translateY(-3px);box-shadow:var(--sombra);border-color:var(--border2)}
+/* Arriba: el indicador (la mejora global en la que impacta) a la
+   izquierda y el responsable a la derecha */
+.indicador-mejora{
+  display:inline-flex;align-items:center;gap:6px 10px;flex-wrap:wrap;min-width:0;padding:4px 12px 4px 10px;
+  border:1px solid var(--border);border-radius:999px;background:none;color:var(--ink);
+  font-size:13px;text-align:left;transition:background .2s,border-color .2s,transform .3s var(--ease);
+}
+.indicador-mejora:hover{background:var(--surface2);border-color:var(--border2)}
+.indicador-mejora:active{transform:scale(.96)}
+.indicador-rotulo{font-size:11.5px;font-weight:600;color:var(--faint)}
+/* Cada indicador: la flechita ↗ en un círculo de su color y el nombre en tinta */
+.indicador-item{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.indicador-item b{font-weight:700}
+.indicador-item svg{
+  width:24px;height:24px;flex:none;padding:5px;box-sizing:border-box;border-radius:50%;
+  background:var(--c,var(--border2));fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;
+}
+.indicador-mejora.vacio{border-style:dashed;border-color:var(--border2);color:var(--faint)}
+.indicador-mejora.vacio .indicador-item svg{background:none;stroke:var(--faint);border:1px dashed var(--border2)}
+.fila-opcion .indicador-item svg{width:28px;height:28px;padding:6px}
 /* Arriba: el tipo a la izquierda y el responsable a la derecha */
 .tarjeta-mejora-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .tipo-mejora{
@@ -558,6 +624,8 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .tarjeta-mejora-titulo{display:flex;align-items:center;gap:6px}
 .tarjeta-mejora-titulo h3{margin:0;font-size:20px;font-weight:800;color:var(--ink);letter-spacing:-.025em}
 .tarjeta-mejora-detalle{margin:0;font-size:14px;color:var(--muted)}
+.tarjeta-mejora-tema{margin:0}
+.tarjeta-mejora-tema b{color:var(--muted);font-weight:600}
 /* Pasos: Pendiente → En curso → Completada. Se tocan para cambiar */
 .pasos-mejora{display:flex;align-items:center;gap:6px;padding:6px;border-radius:999px;background:var(--surface2);position:relative}
 .paso-mejora{
@@ -1329,7 +1397,7 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
 /* Acciones del ranking: solo Crear mejora parece botón, con el lima de
    la subpestaña activa (Ranking) y un icono de cadena puesto desde
    el CSS. Ver mejora (ojo) y Desvincular (cadena rota) pasan a iconos. Se distinguen por
-   data-tema-accion, sin tocar el JS. El ranking de mejoras técnicas
+   data-tema-accion, sin tocar el JS. El ranking de mejoras globales
    (#mejoras-top) usa los mismos botones. */
 :is(#ranking .tabla,#mejoras-top) .boton-chico[data-tema-accion="mejora"]{
   width:auto;padding:6px 12px 6px 10px;white-space:nowrap;background:var(--brand);color:var(--brand-ink);
@@ -1434,6 +1502,7 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
 /* ============================================================
    HITOS — línea de tiempo que se desbloquea sola
    ============================================================ */
+.pestana[data-seccion="impacto"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 17l6-6 4 4 8-8'/%3E%3Cpath d='M14 7h7v7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 17l6-6 4 4 8-8'/%3E%3Cpath d='M14 7h7v7'/%3E%3C/svg%3E")}
 .pestana[data-seccion="hitos"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9z'/%3E%3Cpath d='M5 21v-7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 5a5 5 0 0 1 7 0a5 5 0 0 0 7 0v9a5 5 0 0 1 -7 0a5 5 0 0 0 -7 0v-9z'/%3E%3Cpath d='M5 21v-7'/%3E%3C/svg%3E")}
 /* La línea: un riel vertical; cada hito es un punto (check lima si
    está desbloqueado, candado gris si no) y una tarjeta al lado. */

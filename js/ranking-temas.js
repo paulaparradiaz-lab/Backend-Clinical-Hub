@@ -15,6 +15,10 @@
                      reclasifica o se saca uno del tema.
      Mejora          se crea o se enlaza una mejora (mejoras_ia) al
                      tema completo; se ve y se desvincula sin borrarla.
+                     La mejora también lleva su indicador (una mejora
+                     global, de entrada "Cantidad de temas"), que es lo
+                     que mide Impacto.
+     Nueva etiqueta  crea un tema nuevo en el catálogo.
      Ruido           última fila, en gris: lo descartado como ruido, para
                      reclasificarlo o devolverlo al Inbox si fue un error.
    ============================================================ */
@@ -23,7 +27,7 @@ import { $, escapar, fecha, num, pct, abrirVentana, avisar, cerrarVentana, leer,
 import { catalogo, nombreDe, nombrePais, nombreOrigen, quitarTema, renombrarTema, RUIDO,
   mejoraPorSlug } from "./ia.js";
 import { ventanaClasificar, ventanaComentarios } from "./ia-ventanas.js";
-import { ventanaCrearMejora, ventanaVerMejora, ventanaDesvincular } from "./mejora-ventanas.js";
+import { ventanaCrearMejora, ventanaVerMejora, ventanaDesvincular, ventanaNuevaEtiqueta } from "./mejora-ventanas.js";
 
 let filas = [];                 // v_ia_feedback ya clasificado
 let mejoras = [];               // mejoras_ia
@@ -75,7 +79,9 @@ export function armazon(){
       usando el mismo). <b>La caneca</b> le quita el tema a sus comentarios sin borrar nada: lo que queda
       sin clasificar vuelve al Inbox.</p>
       <p class="mini"><b>La mejora</b> se enlaza al tema completo; con Desvincular se la quitas al tema sin
-      borrarla. <b>Las referencias</b> son las guías que el médico quiere que se citen.</p>
+      borrarla. Al crearla eliges también su indicador (de entrada «Cantidad de temas»), que es lo que mide
+      Impacto. <b>Las referencias</b> son las guías que el médico quiere que se citen. <b>Nueva etiqueta</b>
+      crea un tema en el catálogo: aparece aquí cuando tenga su primer comentario.</p>
       <p class="mini"><b>Ruido</b> es la última fila, en gris: lo que se descartó (tú o la IA) porque no decía
       nada aprovechable. Tócala para revisarlo: si algo se descartó por error, lo reclasificas ahí mismo o lo
       devuelves al Inbox. Solo sale con el filtro Todos.</p>
@@ -87,6 +93,8 @@ export function armazon(){
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
         <input id="q-ranking" type="search" placeholder="Buscar un tema: sepsis, dengue, falla cardiaca…" aria-label="Buscar en el ranking de temas">
       </label>
+      <button class="boton-chico boton-nueva" id="btn-nuevo-tema">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nueva etiqueta</button>
     </div>
     <div id="ranking"><p class="vacio">Cargando…</p></div>
   </section>
@@ -99,6 +107,7 @@ export function conectar(alRecargar){
   qTemas = "";
   pintarChips();
   $("#q-ranking").addEventListener("input", e => { qTemas = e.target.value || ""; pintarRanking(); });
+  $("#btn-nuevo-tema").addEventListener("click", () => ventanaNuevaEtiqueta({ tipo: "tema", alCambiar: trasCambio }));
   $("#btn-ayuda-ranking").addEventListener("click", () => {
     const ayuda = $("#ayuda-ranking");
     ayuda.hidden = !ayuda.hidden;
@@ -259,7 +268,7 @@ function accionDeTema(bt){
   if (accion === "borrar") ventanaDesetiquetar(slug);
   const m = mejoraDe.get(slug);
   if (accion === "mejora" || (accion === "vermejora" && !m))
-    ventanaCrearMejora({ slug: slug, n: comentariosDe(slug).length, mejoras: mejoras, alCambiar: trasCambio });
+    ventanaCrearMejora({ slug: slug, tema: true, n: comentariosDe(slug).length, mejoras: mejoras, alCambiar: trasCambio });
   else if (accion === "vermejora") ventanaVerMejora({ mejora: m, slug: slug, alCambiar: trasCambio });
   if (accion === "desvincular" && m) ventanaDesvincular({ mejora: m, slug: slug, alCambiar: trasCambio });
 }

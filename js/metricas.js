@@ -7,7 +7,7 @@
                color de cada nivel.
    TEMAS       El ranking de temas pedidos de la Temas vieja, con sus
                mejoras y acciones (vive en ranking-temas.js).
-   MEJORAS     Los tipos de mejora técnica, con su promedio de estrellas,
+   MEJORAS     Los tipos de mejora global, con su promedio de estrellas,
                la escala de 4 colores y un globito con el detalle. Como
                en temas, cada tipo puede tener su mejora: crear, ver y
                desvincular, con el filtro con / sin mejora.
@@ -25,7 +25,7 @@ import { sb, $, COLORES, escapar, num, pct, avisar, traducirError, abrirVentana,
 import { RUIDO, cargarCatalogo, cargarMejoras, mejoraPorSlug, nombreDe, renombrarTema,
   quitarMejoraTecnica } from "./ia.js";
 import { ventanaComentarios, plural } from "./ia-ventanas.js";
-import { ventanaCrearMejora, ventanaVerMejora, ventanaDesvincular } from "./mejora-ventanas.js";
+import { ventanaCrearMejora, ventanaVerMejora, ventanaDesvincular, ventanaNuevaEtiqueta } from "./mejora-ventanas.js";
 import * as rankingTemas from "./ranking-temas.js";
 
 /* ============================================================
@@ -45,6 +45,8 @@ export async function render(caja){
     $("#btn-ayuda-mejoras").setAttribute("aria-expanded", String(!ayuda.hidden));
   });
   pintarChipsMejoras();
+  $("#btn-nueva-global").addEventListener("click", () => ventanaNuevaEtiqueta({ tipo: "mejora",
+    alCambiar: async texto => { avisar(texto, "ok", "#aviso-panel"); await cargar(); } }));
   $("#f-foco-mejoras").addEventListener("click", e => {
     const b = e.target.closest("button[data-v]");
     if (!b) return;
@@ -93,13 +95,13 @@ ${rankingTemas.armazon()}
 
 <section class="caja" style="margin-top:16px">
   <div class="fila-entre cabeza-seccion">
-    <div><h2 class="titulo-seccion">Ranking de mejoras técnicas</h2><p class="subtitulo-seccion">Lo que dicen de la plataforma</p></div>
+    <div><h2 class="titulo-seccion">Ranking de mejoras globales</h2><p class="subtitulo-seccion">Lo que dicen de la plataforma</p></div>
     <button class="enlace-ayuda" id="btn-ayuda-mejoras" aria-expanded="false" aria-controls="ayuda-mejoras">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
       ¿Cómo funciona?</button>
   </div>
   <div class="ayuda-plegable" id="ayuda-mejoras" hidden>
-    <p class="mini">Cada fila es un <b>tipo de mejora técnica</b>: lo que los médicos dicen de la plataforma
+    <p class="mini">Cada fila es un <b>tipo de mejora global</b>: lo que los médicos dicen de la plataforma
     (no de un tema clínico), ya clasificado por la IA o por ti.</p>
     <p class="mini"><b>El primer número</b> es cuántos comentarios cayeron en ese tipo, y <b>el largo de la
     barra</b> es ese mismo número dibujado. <b>La estrella</b> es el promedio de estrellas que pusieron esos
@@ -126,6 +128,8 @@ ${rankingTemas.armazon()}
   <div class="filtros-fila">
     <span class="rotulo">Mejora</span>
     <div class="filtros" id="f-foco-mejoras" role="group" aria-label="Estado de mejora"></div>
+    <button class="boton-chico boton-nueva" id="btn-nueva-global">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Nueva etiqueta</button>
   </div>
   <div id="mejoras-top"><p class="vacio">Cargando…</p></div>
 </section>
@@ -313,13 +317,13 @@ function conectarGlobo(puntos){
 }
 
 /* ============================================================
-   5. Ranking de mejoras técnicas
+   5. Ranking de mejoras globales
    Barras como las de Tipo de problema. Ruido va en gris al final:
    se cuenta, pero no es una mejora que haya que hacer.
    ============================================================ */
 let focoMejoras = "todas";
 let mejorasIA = [];              // mejoras_ia
-let mejoraDe = new Map();        // tipo de mejora técnica -> mejora enlazada
+let mejoraDe = new Map();        // tipo de mejora global -> mejora enlazada
 let ultimo = null;               // lo último pintado, para volver a filtrar
 
 function pintarChipsMejoras(){
@@ -463,10 +467,10 @@ function accionMejora(accion, m, clasificadas){
   }
   const enlazada = mejoraDe.get(m.slug);
   if (accion === "mejora" || !enlazada)
-    ventanaCrearMejora({ slug: m.slug, n: m.veces, mejoras: mejorasIA, que: "mejora técnica", alCambiar: alCambiar });
+    ventanaCrearMejora({ slug: m.slug, n: m.veces, mejoras: mejorasIA, alCambiar: alCambiar });
   else if (accion === "vermejora") ventanaVerMejora({ mejora: enlazada, slug: m.slug, alCambiar: alCambiar });
   else if (accion === "desvincular")
-    ventanaDesvincular({ mejora: enlazada, slug: m.slug, que: "mejora técnica", alCambiar: alCambiar });
+    ventanaDesvincular({ mejora: enlazada, slug: m.slug, que: "mejora global", alCambiar: alCambiar });
 }
 
 /* ✏️ y 🗑️ de cada tipo, como en el ranking de temas */
@@ -482,7 +486,7 @@ const ICONOS =
 function ventanaRenombrarTipo(m, alCambiar){
   const actual = nombreDe(m.slug);
   abrirVentana({
-    titulo: "Renombrar mejora técnica",
+    titulo: "Renombrar mejora global",
     guia: actual,
     cuerpo:
       '<input class="campo" id="r-nombre" value="' + escapar(actual) + '">' +
@@ -496,7 +500,7 @@ function ventanaRenombrarTipo(m, alCambiar){
       if (nuevo === actual) return;
       await renombrarTema(m.slug, nuevo);
       cerrarVentana();
-      await alCambiar("Mejora técnica renombrada: “" + nuevo + "”.");
+      await alCambiar("Mejora global renombrada: “" + nuevo + "”.");
       return false;
     }
   });
@@ -506,7 +510,7 @@ function ventanaRenombrarTipo(m, alCambiar){
 function ventanaQuitarTipo(m, lista, alCambiar){
   const vuelven = lista.filter(x => (x.mejoras || []).length === 1 && !(x.temas || []).length).length;
   abrirVentana({
-    titulo: "Quitar mejora técnica",
+    titulo: "Quitar mejora global",
     guia: nombreDe(m.slug) + " · " + plural(lista.length, "comentario", "comentarios"),
     cuerpo:
       '<p>¿Quitar “' + escapar(nombreDe(m.slug)) + '” de sus ' + plural(lista.length, "comentario", "comentarios") + '?</p>' +
