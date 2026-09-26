@@ -6,9 +6,12 @@
                claro) y el ranking de temas de Métricas (reclasificar
                un comentario). Guarda en
                feedback_prueba_clasificacion_por_ia por medio de ia.js.
+   Comentarios La lista de comentarios de un grupo (la fila de Ruido,
+               un tipo de mejora técnica), cada uno con Reclasificar y
+               Devolver al Inbox.
    ============================================================ */
-import { $, escapar, fecha, abrirVentana, avisar, cerrarVentana } from "./nucleo.js";
-import { catalogo, clasificar, nombrePais, nombreOrigen, TIPOS } from "./ia.js";
+import { $, escapar, fecha, num, abrirVentana, avisar, cerrarVentana, traducirError } from "./nucleo.js";
+import { catalogo, clasificar, devolverAlInbox, nombrePais, nombreOrigen, TIPOS } from "./ia.js";
 
 /* ============================================================
    0. La tarjeta del comentario (estilo chat)
@@ -37,8 +40,8 @@ export function textoDe(x){
 
 /* ============================================================
    1. Ventana de clasificar
-   Arranca siempre en blanco y sin sugerencias de la IA, para no
-   sesgar a quien clasifica. Primero solo pregunta qué es (tema
+   Desde el Inbox arranca en blanco y sin sugerencias de la IA, para no
+   sesgar a quien clasifica; al reclasificar abre con lo que ya tiene. Primero solo pregunta qué es (tema
    pedido, mejora técnica o las dos); al marcar una opción se
    despliega debajo su parte. Estética del resto del panel: el
    control de las subpestañas y la bandeja del ranking. Lo que elijas reemplaza lo que tuviera
@@ -55,10 +58,19 @@ const ICONO_TIPO = {
   mejora_tecnica: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>'
 };
 
-export function ventanaClasificar(lista, alTerminar){
+export function ventanaClasificar(lista, alTerminar, opciones){
   const una = lista.length === 1;
-  const marcadas = { temas: new Set(), mejoras: new Set() };
+  /* Desde el Inbox arranca en blanco (lo que la IA no tuvo claro, sin
+     sesgo). Al reclasificar algo ya clasificado ({ conActual:true }) abre
+     con lo que tiene, para corregir solo lo que sobra o falta. */
+  const actual = una && opciones && opciones.conActual ? lista[0] : null;
+  const marcadas = {
+    temas: new Set(actual ? (actual.temas || []) : []),
+    mejoras: new Set(actual ? (actual.mejoras || []) : [])
+  };
   const tipos = new Set();
+  if (marcadas.temas.size) tipos.add("tema_pedido");
+  if (marcadas.mejoras.size) tipos.add("mejora_tecnica");
   let buscaTema = "";
 
   /* Arriba, lo que escribió el médico completo, para clasificar
@@ -91,7 +103,7 @@ export function ventanaClasificar(lista, alTerminar){
       ' elegidas y reemplaza lo que tuvieran.</p>');
 
   abrirVentana({
-    titulo: una ? "Clasificar" : "Clasificar " + lista.length + " juntas",
+    titulo: actual ? "Reclasificar" : (una ? "Clasificar" : "Clasificar " + lista.length + " juntas"),
     guia: una ? "" : "Lo que elijas se le pone a las " + lista.length,
     cuerpo: cuerpo,
     aceptar: "Guardar",
@@ -144,12 +156,12 @@ export function ventanaClasificar(lista, alTerminar){
     if (!goma) return;
     const marcadas = Array.prototype.filter.call(caja.querySelectorAll(".subpestana"), b => tipos.has(b.dataset.tipo));
     if (!marcadas.length){ goma.style.opacity = "0"; goma.style.width = "0px"; return; }
-    const base = caja.getBoundingClientRect();
-    const a = marcadas[0].getBoundingClientRect();
-    const z = marcadas[marcadas.length - 1].getBoundingClientRect();
+    /* offsetLeft/offsetWidth miden el diseño real, sin que les afecte la
+       animación de entrada de la ventana (que la escala mientras abre). */
+    const a = marcadas[0], z = marcadas[marcadas.length - 1];
     goma.style.opacity = "1";
-    goma.style.left = (a.left - base.left) + "px";
-    goma.style.width = (z.right - a.left) + "px";
+    goma.style.left = a.offsetLeft + "px";
+    goma.style.width = (z.offsetLeft + z.offsetWidth - a.offsetLeft) + "px";
   }
 
   /* El circulito salta solo en la opción que se acaba de tocar */
@@ -187,6 +199,13 @@ export function ventanaClasificar(lista, alTerminar){
 
   armarTipos();
   pintarTipos();
+  /* Si los botones cambian de tamaño después de pintarse (termina de
+     cargar la tipografía, la ventana se acomoda), la goma se vuelve a medir. */
+  if (window.ResizeObserver){
+    const vigia = new ResizeObserver(() => moverGoma());
+    document.querySelectorAll("#c-tipos .subpestana").forEach(b => vigia.observe(b));
+  }
+  requestAnimationFrame(moverGoma);
   pintarTemas();
   pintarMejoras();
 
@@ -259,4 +278,72 @@ function estirable(caja, esquina){
   esquina.addEventListener("dblclick", () => {
     caja.style.height = (caja.offsetHeight < total() - 2 ? total() : inicial) + "px";
   });
+}
+
+/* ============================================================
+   3. Ventana de comentarios de un grupo
+   Muestra los comentarios en estilo chat; cada uno con Reclasificar
+   (abre la ventana de clasificar en blanco) y Devolver al Inbox (solo
+   si tiene texto, porque el Inbox no muestra comentarios vacíos).
+   alCambiar(texto) recibe el aviso para mostrar y vuelve a cargar.
+   ============================================================ */
+const ICONO_ETIQUETA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/>' +
+  '<circle cx="7.5" cy="7.5" r="1.5"/></svg>';
+
+export function ventanaComentarios({ titulo, guia, intro, lista, vacio, alCambiar }){
+  const orden = lista.slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  abrirVentana({
+    titulo: titulo,
+    guia: guia,
+    cuerpo:
+      (intro ? '<p class="mini">' + intro + '</p>' : '') +
+      '<div class="lista-chat" style="max-height:58vh;overflow:auto">' +
+      (orden.length ? orden.map(tarjetaGrupo).join("") : '<p class="vacio">' + escapar(vacio || "No hay comentarios.") + '</p>') +
+      '</div>',
+    aceptar: "Cerrar",
+    ancha: true,
+    alAceptar: async () => {}
+  });
+  /* Solo se mira: sobra el Cancelar al lado de Cerrar */
+  const cancelar = document.querySelector("#velo-forma [data-cerrar]");
+  if (cancelar) cancelar.hidden = true;
+  const caja = document.querySelector("#velo-forma .lista-chat");
+  if (!caja) return;
+  caja.addEventListener("click", async e => {
+    const b = e.target.closest("button[data-accion]");
+    if (!b) return;
+    const x = orden.find(p => String(p.id) === b.dataset.id);
+    if (!x) return;
+    if (b.dataset.accion === "reclasificar"){
+      ventanaClasificar([x], () => alCambiar("Comentario reclasificado."), { conActual:true });
+      return;
+    }
+    if (b.dataset.accion === "devolver"){
+      b.disabled = true;
+      try {
+        await devolverAlInbox([x]);
+        cerrarVentana();
+        await alCambiar("Devuelto al Inbox para clasificarlo de nuevo.");
+      } catch (err){
+        b.disabled = false;
+        avisar(traducirError(err && err.message), "mal", "#aviso-forma");
+      }
+    }
+  });
+}
+
+function tarjetaGrupo(x){
+  const id = escapar(String(x.id));
+  const conTexto = [x.mejora_texto, x.tema_puntual, x.guia_de_referencia].some(t => String(t || "").trim());
+  return '<article class="comentario">' +
+    '<div class="comentario-meta">' + metaDe(x) + '</div>' +
+    textoDe(x) +
+    '<div class="comentario-pie">' +
+    '<button class="boton-chico" data-accion="reclasificar" data-id="' + id + '">' + ICONO_ETIQUETA + 'Reclasificar</button>' +
+    (conTexto ? '<button class="boton-chico" data-accion="devolver" data-id="' + id + '">Devolver al Inbox</button>' : '') +
+    '</div></article>';
+}
+
+export function plural(n, uno, varios){
+  return num(n) + " " + (n === 1 ? uno : varios);
 }

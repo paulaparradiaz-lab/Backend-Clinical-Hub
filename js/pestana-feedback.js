@@ -55,6 +55,13 @@ export async function render(){
     try { await SUBS[sub].recargar(); } finally { b.classList.remove("girando"); }
   });
 
+  /* La goma se vuelve a medir si las subpestañas cambian de tamaño
+     (aparece el número rojo, termina de cargar la tipografía…). */
+  if (window.ResizeObserver){
+    const vigia = new ResizeObserver(() => moverGoma());
+    document.querySelectorAll("#subpestanas .subpestana").forEach(b => vigia.observe(b));
+  }
+
   contarPendientes();
   await abrir(sub);
 }
@@ -77,10 +84,8 @@ function moverGoma(){
   const goma = caja && caja.querySelector(".goma");
   const activa = caja && caja.querySelector('.subpestana[aria-selected="true"]');
   if (!goma || !activa) return;
-  const base = caja.getBoundingClientRect();
-  const b = activa.getBoundingClientRect();
-  goma.style.left = (b.left - base.left) + "px";
-  goma.style.width = b.width + "px";
+  goma.style.left = activa.offsetLeft + "px";
+  goma.style.width = activa.offsetWidth + "px";
   goma.style.opacity = "1";
 }
 

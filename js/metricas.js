@@ -7,7 +7,8 @@
                color de cada nivel.
    TEMAS       El ranking de temas pedidos de la Temas vieja, con sus
                mejoras y acciones (vive en ranking-temas.js).
-   MEJORAS     Los tipos de mejora técnica, con su promedio de estrellas.
+   MEJORAS     Los tipos de mejora técnica, con su promedio de estrellas,
+               la escala de 4 colores y un globito con el detalle.
 
    Los rankings cuentan solo lo ya clasificado (auto o revisado): lo
    que la IA dejó por revisar vive en el Inbox y suma aquí en cuanto
@@ -17,8 +18,9 @@
    Lee public.v_ia_feedback, public.v_ia_mejoras, mejoras_ia y
    mejora_ia_tema.
    ============================================================ */
-import { sb, $, COLORES, escapar, num, pct, traducirError } from "./nucleo.js";
+import { sb, $, COLORES, escapar, num, pct, avisar, traducirError } from "./nucleo.js";
 import { RUIDO, cargarCatalogo, cargarMejoras } from "./ia.js";
+import { ventanaComentarios, plural } from "./ia-ventanas.js";
 import * as rankingTemas from "./ranking-temas.js";
 
 /* ============================================================
@@ -27,6 +29,16 @@ import * as rankingTemas from "./ranking-temas.js";
 export async function render(caja){
   caja.innerHTML = armazon();
   rankingTemas.conectar(cargar);
+  $("#btn-ayuda-estrellas").addEventListener("click", () => {
+    const ayuda = $("#ayuda-estrellas");
+    ayuda.hidden = !ayuda.hidden;
+    $("#btn-ayuda-estrellas").setAttribute("aria-expanded", String(!ayuda.hidden));
+  });
+  $("#btn-ayuda-mejoras").addEventListener("click", () => {
+    const ayuda = $("#ayuda-mejoras");
+    ayuda.hidden = !ayuda.hidden;
+    $("#btn-ayuda-mejoras").setAttribute("aria-expanded", String(!ayuda.hidden));
+  });
   await cargar();
 }
 
@@ -38,14 +50,62 @@ function armazon(){
 <p class="resumen-sub" id="resumen-metricas"></p>
 
 <section class="caja" style="margin-top:14px">
-  <span class="etiqueta">Ranking de estrellas</span><span class="mini">Promedio de estrellas por mes</span>
+  <div class="fila-entre cabeza-seccion">
+    <div><h2 class="titulo-seccion">Ranking de estrellas</h2><p class="subtitulo-seccion">Promedio de estrellas por mes</p></div>
+    <button class="enlace-ayuda" id="btn-ayuda-estrellas" aria-expanded="false" aria-controls="ayuda-estrellas">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+      ¿Cómo funciona?</button>
+  </div>
+  <div class="ayuda-plegable" id="ayuda-estrellas" hidden>
+    <p class="mini">Cada <b>bolita es un mes</b> y su altura es el promedio de estrellas que pusieron los
+    médicos ese mes (de 1 a 5). Cuenta todas las calificaciones, también las que llegan solo con estrellas.</p>
+    <p class="mini"><b>El número de arriba</b> ("3,9 ★") es ese promedio y <b>el de abajo</b>, cuántas reseñas lo
+    forman: con pocas reseñas el promedio puede engañar.</p>
+    <p class="mini"><b>El color</b> de cada bolita indica qué tan bien calificaron ese mes:</p>
+    <ul class="lista-niveles">
+      <li><i style="background:#1fa15a"></i><b>Excelente:</b> de 4,5 a 5 estrellas</li>
+      <li><i style="background:#2f6fed"></i><b>Muy bien:</b> de 4 a 4,5</li>
+      <li><i style="background:#e5a117"></i><b>Regular:</b> de 3,5 a 4</li>
+      <li><i style="background:#dc4a3d"></i><b>Malo:</b> menos de 3,5</li>
+    </ul>
+    <p class="mini"><b>El área sombreada</b> une los meses para ver si la nota sube o baja, y <b>el palito
+    punteado</b> ubica cada mes en la línea de abajo. Solo salen los meses que tuvieron feedback.</p>
+    <p class="mini"><b>Pasa el mouse</b> (o toca) una bolita para ver cuántas notas hubo de cada estrella ese mes
+    y el total.</p>
+  </div>
   <div id="tendencia"><p class="vacio">Cargando…</p></div>
 </section>
 
 ${rankingTemas.armazon()}
 
 <section class="caja" style="margin-top:16px">
-  <span class="etiqueta">Ranking de mejoras técnicas</span><span class="mini">Cuántas veces sale cada tipo y su nota promedio</span>
+  <div class="fila-entre cabeza-seccion">
+    <div><h2 class="titulo-seccion">Ranking de mejoras técnicas</h2><p class="subtitulo-seccion">Lo que dicen de la plataforma</p></div>
+    <button class="enlace-ayuda" id="btn-ayuda-mejoras" aria-expanded="false" aria-controls="ayuda-mejoras">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+      ¿Cómo funciona?</button>
+  </div>
+  <div class="ayuda-plegable" id="ayuda-mejoras" hidden>
+    <p class="mini">Cada fila es un <b>tipo de mejora técnica</b>: lo que los médicos dicen de la plataforma
+    (no de un tema clínico), ya clasificado por la IA o por ti.</p>
+    <p class="mini"><b>El primer número</b> es cuántos comentarios cayeron en ese tipo, y <b>el largo de la
+    barra</b> es ese mismo número dibujado. <b>La estrella</b> es el promedio de estrellas que pusieron esos
+    médicos al comentar (solo cuentan los que calificaron).</p>
+    <p class="mini"><b>El color</b> indica qué tan contentos están quienes señalan esa mejora, con la misma
+    escala de la gráfica de estrellas:</p>
+    <ul class="lista-niveles">
+      <li><i style="background:#1fa15a"></i><b>Excelente:</b> de 4,5 a 5 estrellas</li>
+      <li><i style="background:#2f6fed"></i><b>Muy bien:</b> de 4 a 4,5</li>
+      <li><i style="background:#e5a117"></i><b>Regular:</b> de 3,5 a 4</li>
+      <li><i style="background:#dc4a3d"></i><b>Malo:</b> menos de 3,5</li>
+    </ul>
+    <p class="mini">Una barra roja quiere decir que quienes piden eso están insatisfechos.</p>
+    <p class="mini"><b>Ruido</b> va al final, en gris: se cuenta, pero no es una mejora por hacer.</p>
+    <p class="mini"><b>Pasa el mouse</b> por una fila para ver cuántas notas hubo de cada estrella. Con
+    pocas notas el promedio puede engañar: fíjate en cuántas lo forman.</p>
+    <p class="mini"><b>Toca una fila</b> para ver los comentarios de ese tipo: desde ahí puedes reclasificar
+    cualquiera o devolverlo al Inbox, igual que en el ranking de temas.</p>
+  </div>
   <div id="mejoras-top"><p class="vacio">Cargando…</p></div>
 </section>
 `;
@@ -66,14 +126,17 @@ async function cargar(){
     const error = fb.error || mj.error;
     if (error) throw error;
   } catch (err){
+    if (!$("#tendencia")) return;
     const aviso = '<p class="vacio">No se pudieron leer las métricas. ' + escapar(traducirError(err && err.message)) + '</p>';
     ["#tendencia", "#ranking", "#mejoras-top"].forEach(s => { $(s).innerHTML = aviso; });
     return;
   }
+  /* Si mientras cargaba te fuiste al Inbox, no hay dónde pintar */
+  if (!$("#tendencia")) return;
   pintarResumen(fb.data || []);
   pintarEstrellas(fb.data || []);
   rankingTemas.pintar(fb.data || [], datosMejoras);
-  pintarMejoras(mj.data || []);
+  pintarMejoras(mj.data || [], fb.data || []);
 }
 
 function pintarResumen(filas){
@@ -231,26 +294,97 @@ function conectarGlobo(puntos){
    Barras como las de Tipo de problema. Ruido va en gris al final:
    se cuenta, pero no es una mejora que haya que hacer.
    ============================================================ */
-function pintarMejoras(lista){
+function pintarMejoras(lista, filas){
   if (!lista.length){
     $("#mejoras-top").innerHTML = '<p class="vacio">Todavía no hay mejoras clasificadas.</p>';
     return;
   }
+  /* Cuántas notas de cada estrella tiene cada tipo (para el globito).
+     Mismas filas que cuenta la vista: todo menos lo que sigue por revisar. */
+  const notasDe = new Map();
+  const clasificadas = filas.filter(x => x.estado !== "por_revisar");
+  /* Y cuántas formas distintas de decirlo tiene cada tipo, como en temas */
+  const formasDe = new Map();
+  clasificadas.forEach(x => (x.mejoras || []).forEach(m => {
+    const o = notasDe.get(m) || { 1:0, 2:0, 3:0, 4:0, 5:0 };
+    if (x.estrellas != null) o[x.estrellas]++;
+    notasDe.set(m, o);
+    const texto = String(x.mejora_texto || x.tema_puntual || "").trim().toLowerCase();
+    const formas = formasDe.get(m) || new Set();
+    if (texto) formas.add(texto);
+    formasDe.set(m, formas);
+  }));
   const orden = lista.filter(m => m.slug !== RUIDO).concat(lista.filter(m => m.slug === RUIDO));
   const tope = Math.max(1, ...lista.map(m => m.veces));
-  $("#mejoras-top").innerHTML = orden.map(m => {
-    const color = m.slug === RUIDO ? "var(--border2)"
-      : (m.promedio_estrellas != null && m.promedio_estrellas < 3 ? "var(--s1)" : "var(--brand)");
-    return '<div class="fila">' +
-      '<span class="fila-etq">' + escapar(m.nombre) + '</span>' +
+  $("#mejoras-top").innerHTML = orden.map((m, i) => {
+    const prom = m.promedio_estrellas != null ? Number(m.promedio_estrellas) : null;
+    const color = m.slug === RUIDO ? "var(--border2)" : (prom != null ? colorNota(prom) : "var(--brand)");
+    const formas = (formasDe.get(m.slug) || new Set()).size;
+    const enlace = formas > 1 ? formas + " formas de decirlo" : (m.veces === 1 ? "1 comentario" : m.veces + " comentarios");
+    return '<div class="fila pinchable" data-i="' + i + '" tabindex="0" role="button" title="Ver sus comentarios">' +
+      '<span class="fila-etq"><span class="fila-nombre">' + escapar(m.nombre) + '</span>' +
+        '<span class="enlace-formas">' + enlace + '</span></span>' +
       '<span class="barra"><span style="width:' + (m.veces / tope * 100) + '%;background:' + color + '"></span></span>' +
       '<span class="fila-num tabular"><b>' + num(m.veces) + '</b> · ' +
-        (m.promedio_estrellas != null ? Number(m.promedio_estrellas).toFixed(1) + "★" : "—") + '</span>' +
+        (prom != null ? prom.toFixed(1).replace(".", ",") + "★" : "—") + '</span>' +
     '</div>';
   }).join("") +
-  '<p class="mini">La cifra es cuántas veces sale y la estrella, la nota promedio de quienes la señalan. ' +
-  'La barra roja avisa que ese tipo viene con nota baja (menos de 3). Ruido va en gris: se cuenta, ' +
-  'pero no es una mejora por hacer.</p>';
+  '<div class="globo-mes" id="globo-mejora" role="tooltip" hidden></div>' +
+  '<div class="leyenda-notas">' + NIVELES.map(n =>
+    '<span><i style="background:' + colorNota(n[2]) + '"></i>' + n[0] + ' <b>' + n[1] + '</b></span>').join("") +
+    '<span><i style="background:var(--border2)"></i>Ruido</span></div>';
+
+  /* Globito: al pasar el mouse (o tocar) una fila, el detalle de ese tipo */
+  const caja = $("#mejoras-top");
+  const globo = $("#globo-mejora");
+  function mostrar(fila){
+    const m = orden[Number(fila.dataset.i)];
+    const notas = notasDe.get(m.slug) || { 1:0, 2:0, 3:0, 4:0, 5:0 };
+    const prom = m.promedio_estrellas != null ? Number(m.promedio_estrellas) : null;
+    const topeN = Math.max(1, ...[1, 2, 3, 4, 5].map(n => notas[n]));
+    globo.innerHTML =
+      '<div class="globo-mes-cab"><b>' + escapar(m.nombre) + '</b>' +
+        (prom != null ? '<span style="color:' + (m.slug === RUIDO ? "var(--muted)" : colorNota(prom)) + '">' +
+          prom.toFixed(1).replace(".", ",") + ' ★</span>' : '') + '</div>' +
+      [5, 4, 3, 2, 1].map(n =>
+        '<div class="globo-mes-fila"><span>' + n + ' ★</span>' +
+        '<span class="globo-mes-barra"><i style="width:' + (notas[n] / topeN * 100) + '%;background:' + COLORES[n] + '"></i></span>' +
+        '<b>' + num(notas[n]) + '</b><small>' + pct(notas[n], m.con_estrellas) + '%</small></div>').join("") +
+      '<div class="globo-mes-total"><b>' + num(m.veces) + '</b> ' + (m.veces === 1 ? "comentario" : "comentarios") +
+        ' · <b>' + num(m.con_estrellas) + '</b> con nota' +
+        (m.slug === RUIDO ? '<br>No es una mejora por hacer.' : '') + '</div>';
+    globo.hidden = false;
+    const base = caja.getBoundingClientRect();
+    const f = fila.getBoundingClientRect();
+    const ancho = globo.offsetWidth;
+    globo.style.left = Math.max(0, Math.min(f.right - base.left - ancho, base.width - ancho)) + "px";
+    const abajo = f.bottom - base.top + 6;
+    globo.style.top = (abajo + globo.offsetHeight <= base.height + 40 ? abajo : f.top - base.top - globo.offsetHeight - 6) + "px";
+  }
+  function ocultar(){ globo.hidden = true; }
+  caja.querySelectorAll(".fila[data-i]").forEach(fila => {
+    fila.addEventListener("mouseenter", () => mostrar(fila));
+    fila.addEventListener("mouseleave", ocultar);
+    fila.addEventListener("focus", () => mostrar(fila));
+    fila.addEventListener("blur", ocultar);
+    fila.addEventListener("click", () => { ocultar(); abrirMejora(orden[Number(fila.dataset.i)]); });
+    fila.addEventListener("keydown", e => { if (e.key === "Enter"){ ocultar(); abrirMejora(orden[Number(fila.dataset.i)]); } });
+  });
+
+  /* Tocar una fila: sus comentarios, con Reclasificar y Devolver al Inbox */
+  function abrirMejora(m){
+    const prom = m.promedio_estrellas != null ? Number(m.promedio_estrellas).toFixed(1).replace(".", ",") + "★" : null;
+    ventanaComentarios({
+      titulo: m.nombre,
+      guia: plural(m.veces, "comentario", "comentarios") +
+        (prom ? " · " + prom + " de " + plural(m.con_estrellas, "nota", "notas") : ""),
+      intro: m.slug === RUIDO
+        ? "Lo que se marcó como ruido, tal cual llegó. Si algo se descartó por error, reclasifícalo aquí mismo o devuélvelo al Inbox."
+        : "Lo que escribió cada médico, tal cual llegó. Si alguno no es de este tipo, reclasifícalo aquí mismo o devuélvelo al Inbox.",
+      lista: clasificadas.filter(x => (x.mejoras || []).indexOf(m.slug) > -1),
+      alCambiar: async texto => { avisar(texto, "ok", "#aviso-panel"); await cargar(); }
+    });
+  }
 }
 
 /* ============================================================

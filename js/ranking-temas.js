@@ -20,9 +20,9 @@
    ============================================================ */
 import { $, escapar, fecha, num, pct, abrirVentana, avisar, cerrarVentana, leer,
   traducirError } from "./nucleo.js";
-import { catalogo, nombreDe, nombrePais, nombreOrigen, quitarTema, renombrarTema, devolverAlInbox, RUIDO, ESTADOS, nombreEstado,
+import { catalogo, nombreDe, nombrePais, nombreOrigen, quitarTema, renombrarTema, RUIDO, ESTADOS, nombreEstado,
   crearMejora, enlazarMejora, desvincularMejora, editarMejora } from "./ia.js";
-import { ventanaClasificar, textoDe } from "./ia-ventanas.js";
+import { ventanaClasificar, ventanaComentarios } from "./ia-ventanas.js";
 
 let filas = [];                 // v_ia_feedback ya clasificado
 let mejoras = [];               // mejoras_ia
@@ -60,8 +60,8 @@ export function armazon(){
     <div class="filtros" id="f-foco" role="group" aria-label="Estado de mejora"></div>
   </div>
   <section class="caja" style="margin-top:14px">
-    <div class="fila-entre" style="margin-bottom:0">
-      <span class="etiqueta">Ranking de temas pedidos</span>
+    <div class="fila-entre cabeza-seccion">
+      <div><h2 class="titulo-seccion">Ranking de temas pedidos</h2><p class="subtitulo-seccion">Tus temas, por cuánta gente los pide</p></div>
       <button class="enlace-ayuda" id="btn-ayuda-ranking" aria-expanded="false" aria-controls="ayuda-ranking">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
         ¿Cómo funciona?</button>
@@ -362,62 +362,15 @@ function filaRuidoSuelta(){
 }
 
 function ventanaVerRuido(){
-  const lista = comentariosRuido().slice().sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-  abrirVentana({
+  const lista = comentariosRuido();
+  ventanaComentarios({
     titulo: "Ruido",
     guia: plural(lista.length, "comentario descartado", "comentarios descartados"),
-    cuerpo:
-      '<p class="mini">Lo que se marcó como ruido, tal cual llegó. Si algo se descartó por error, ' +
-      'reclasifícalo aquí mismo o devuélvelo al Inbox.</p>' +
-      '<div class="lista-chat" style="max-height:58vh;overflow:auto">' +
-      (lista.length ? lista.map(tarjetaRuido).join("") : '<p class="vacio">No hay nada en ruido.</p>') +
-      '</div>',
-    aceptar: "Cerrar",
-    ancha: true,
-    alAceptar: async () => {}
+    intro: "Lo que se marcó como ruido, tal cual llegó. Si algo se descartó por error, reclasifícalo aquí mismo o devuélvelo al Inbox.",
+    lista: lista,
+    vacio: "No hay nada en ruido.",
+    alCambiar: trasCambio
   });
-  const cancelar = document.querySelector("#velo-forma [data-cerrar]");
-  if (cancelar) cancelar.hidden = true;
-  const caja = document.querySelector("#velo-forma .lista-chat");
-  if (!caja) return;
-  caja.addEventListener("click", async e => {
-    const b = e.target.closest("button[data-accion]");
-    if (!b) return;
-    const x = lista.find(p => String(p.id) === b.dataset.id);
-    if (!x) return;
-    if (b.dataset.accion === "reclasificar"){
-      ventanaClasificar([x], () => trasCambio("Comentario reclasificado: ya no está en ruido."));
-      return;
-    }
-    if (b.dataset.accion === "devolver"){
-      b.disabled = true;
-      try {
-        await devolverAlInbox([x]);
-        cerrarVentana();
-        await trasCambio("Devuelto al Inbox para clasificarlo de nuevo.");
-      } catch (err){
-        b.disabled = false;
-        avisar(traducirError(err && err.message), "mal", "#aviso-forma");
-      }
-    }
-  });
-}
-
-function tarjetaRuido(x){
-  const id = escapar(String(x.id));
-  return '<article class="comentario">' +
-    '<div class="comentario-meta">' +
-    '<span class="nota">' + (x.estrellas ? x.estrellas + " ★" : "sin nota") + '</span>' +
-    '<span class="canal">' + escapar(nombreOrigen(x.origen)) + '</span>' +
-    '<span class="fecha">' + fecha(x.fecha) + (x.pais ? " · " + escapar(nombrePais(x.pais)) : "") + '</span>' +
-    '</div>' +
-    textoDe(x) +
-    '<div class="comentario-pie">' +
-    '<button class="boton-chico" data-accion="reclasificar" data-id="' + id + '">' + ETIQUETA + 'Reclasificar</button>' +
-    /* El Inbox solo muestra lo que tiene texto: sin texto, solo se reclasifica */
-    ([x.mejora_texto, x.tema_puntual, x.guia_de_referencia].some(t => String(t || "").trim())
-      ? '<button class="boton-chico" data-accion="devolver" data-id="' + id + '">Devolver al Inbox</button>' : '') +
-    '</div></article>';
 }
 
 function ventanaVerTema(slug){
@@ -448,7 +401,7 @@ function ventanaVerTema(slug){
     const x = lista.find(p => String(p.id) === b.dataset.id);
     if (!x) return;
     if (b.dataset.accion === "reclasificar"){
-      ventanaClasificar([x], () => trasCambio("Comentario reclasificado."));
+      ventanaClasificar([x], () => trasCambio("Comentario reclasificado."), { conActual:true });
       return;
     }
     if (b.dataset.accion === "quitar"){

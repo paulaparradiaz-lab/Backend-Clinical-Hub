@@ -53,10 +53,11 @@ function armazon(){
   return `
 <p class="aviso" id="aviso-panel" role="status"></p>
 <section class="caja" style="margin-top:14px">
-  <!-- Título con el número y la ayuda plegable: arranca cerrada
+  <!-- Título y ayuda plegable: arranca cerrada
        y "¿Cómo funciona?" la abre o la cierra. -->
-  <div class="fila-entre" style="margin-bottom:0">
-    <span class="etiqueta">Por clasificar<span class="num-texto" id="num-inbox" hidden>0</span></span>
+  <div class="fila-entre cabeza-seccion">
+    <div><h2 class="titulo-seccion">Por clasificar</h2>
+      <p class="subtitulo-seccion">Lo que la IA no tuvo claro</p></div>
     <button class="enlace-ayuda" id="btn-ayuda" aria-expanded="false" aria-controls="ayuda-inbox">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
       ¿Cómo funciona?</button>
@@ -107,10 +108,13 @@ async function cargar(){
     if (error) throw error;
     filas = data || [];
   } catch (err){
+    if (!$("#comentarios")) return;
     $("#comentarios").innerHTML = '<p class="vacio">No se pudo leer el inbox. ' +
       escapar(traducirError(err && err.message)) + '</p>';
     return;
   }
+  /* Si mientras cargaba te fuiste a Métricas, no hay dónde pintar */
+  if (!$("#comentarios")) return;
   seleccion = new Set();
   pintar();
 }
@@ -130,11 +134,8 @@ function pintar(){
   /* El globito de la subpestaña Inbox dice cuántas quedan */
   document.dispatchEvent(new CustomEvent("ch-pendientes", { detail: filas.length }));
 
-  /* El total va junto al título; debajo del buscador solo se
-     dice cuántas coinciden cuando estás buscando. */
-  const numero = $("#num-inbox");
-  numero.hidden = !filas.length;
-  numero.textContent = filas.length > 99 ? "99+" : String(filas.length);
+  /* El total ya se ve en rojo en la subpestaña y en el menú; debajo del
+     buscador solo se dice cuántas coinciden cuando estás buscando. */
   const res = $("#resumen-inbox");
   res.hidden = !busca;
   res.innerHTML = busca ? "Buscando “" + escapar(q.trim()) + "”: <b>" + num(vistas.length) + "</b> de " +

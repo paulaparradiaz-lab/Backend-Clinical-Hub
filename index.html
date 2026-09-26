@@ -416,16 +416,24 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 }
 .esquina-estirar:hover{opacity:1;filter:brightness(.6)}
 .esquina-estirar[hidden]{display:none}
-/* Inbox · título con el número, ayuda plegable y buscador con lupa */
-.num-texto::before{content:" · "}
-.num-texto{font-weight:700;color:var(--ink)}
-.num-texto[hidden]{display:none}
+/* Título de sección (estilo fijo para todas las secciones del panel):
+   18 px en negrita con una frase gris debajo que dice qué muestra. El
+   "¿Cómo funciona?" queda a la derecha, arriba. */
+.fila-entre.cabeza-seccion{align-items:flex-start;flex-wrap:nowrap;margin-bottom:0}
+.titulo-seccion{margin:0;font-size:18px;font-weight:700;letter-spacing:-.01em;line-height:1.25;color:var(--ink)}
+.subtitulo-seccion{margin:3px 0 0;font-size:12.5px;color:var(--faint);line-height:1.4}
+.cabeza-seccion .enlace-ayuda{flex:none;margin-top:2px}
+/* Inbox · ayuda plegable y buscador con lupa */
 .enlace-ayuda{display:inline-flex;align-items:center;gap:5px;padding:4px 2px;background:none;border:0;font-size:12.5px;color:var(--muted);text-decoration:underline;text-underline-offset:3px}
 .enlace-ayuda:hover{color:var(--ink)}
 .enlace-ayuda svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .ayuda-plegable{background:var(--surface2);border-radius:14px;padding:10px 12px;margin-top:10px;animation:ch-aparece .2s ease both}
 .ayuda-plegable .mini{margin:0}
 .ayuda-plegable .mini + .mini{margin-top:8px}
+.lista-niveles{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px}
+.lista-niveles li{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--faint)}
+.lista-niveles i{width:9px;height:9px;border-radius:50%;flex:none}
+.lista-niveles + .mini{margin-top:8px}
 .ayuda-plegable b{color:var(--muted);font-weight:600}
 #panel-ranking .ayuda-plegable{margin-bottom:4px}
 .fila-buscar{display:flex;align-items:center;gap:8px;margin:16px 0 18px}
@@ -482,9 +490,13 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .fila.pinchable:hover .fila-etq{color:var(--ink)}
 /* Métricas · ranking de mejoras: todas las barras arrancan en la misma
    línea, aunque los nombres tengan largos distintos. */
-#mejoras-top{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+#mejoras-top{display:flex;flex-direction:column;gap:10px;margin-top:14px;position:relative}
+#mejoras-top .leyenda-notas{margin-top:6px}
 #mejoras-top .fila{grid-template-columns:min(190px,38%) 1fr auto}
-#mejoras-top .fila-etq{max-width:none}
+#mejoras-top .fila-etq{max-width:none;display:flex;flex-direction:column;gap:1px;white-space:normal}
+#mejoras-top .fila-nombre{color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#mejoras-top .enlace-formas{margin:0;font-size:12px}
+#mejoras-top{gap:14px}
 
 .datos{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .dato{
@@ -843,7 +855,7 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
 
 /* ============================================================
    ICONOS DE PESTAÑAS (solo CSS: se leen del data-seccion que ya
-   pone el JS; las secciones "pronto" llevan un reloj)
+   pone el JS; las secciones "pronto" llevan un candado)
    ============================================================ */
 .pestana{display:inline-flex;align-items:center;gap:8px}
 .pestana::before{
@@ -858,7 +870,8 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
 /* Pestañas nuevas (tablas de la IA): bandeja para Inbox, barras para Métricas */
 .pestana[data-seccion="inbox"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 13l2.2-8h11.6l2.2 8v6H4z'/%3E%3Cpath d='M4 13h4.5l1.5 3h4l1.5-3H20'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 13l2.2-8h11.6l2.2 8v6H4z'/%3E%3Cpath d='M4 13h4.5l1.5 3h4l1.5-3H20'/%3E%3C/svg%3E")}
 .pestana[data-seccion="metricas"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 20v-8M12 20V5M19 20v-5'/%3E%3Cpath d='M3 20h18'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 20v-8M12 20V5M19 20v-5'/%3E%3Cpath d='M3 20h18'/%3E%3C/svg%3E")}
-.pestana[aria-disabled="true"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E")}
+/* Secciones "pronto": candado, igual en computador y en celular */
+.pestana[aria-disabled="true"]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z'/%3E%3Cpath d='M8 11v-4a4 4 0 1 1 8 0v4'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z'/%3E%3Cpath d='M8 11v-4a4 4 0 1 1 8 0v4'/%3E%3C/svg%3E")}
 
 /* ============================================================
    BARRA LATERAL (Dashboard V2) — pantallas de 900 px o más.
@@ -1152,7 +1165,11 @@ select.filtrando{border-color:var(--sel);box-shadow:inset 0 0 0 1px var(--sel)}
 /* Fila de Ruido: al final del ranking, en gris, para distinguirla de los temas */
 #ranking .fila-ruido td{background:var(--surface2)}
 #ranking .fila-ruido .tema-nombre{color:var(--muted)}
-#ranking .fila-ruido .boton-chico{background:var(--surface);border:1px solid var(--border2)}
+#ranking .fila-ruido .boton-chico{
+  width:auto; padding:6px 14px; font-size:12px; font-weight:600; line-height:1.4; white-space:nowrap;
+  background:var(--surface); border:1px solid var(--border2); color:var(--brand-ink); box-shadow:none;
+}
+#ranking .fila-ruido .boton-chico:hover{background:var(--brand);border-color:transparent}
 #ranking .enlace-formas{margin-top:4px}
 /* El encabezado Tema arranca donde arranca el texto de la tarjeta. */
 #ranking .tabla th:first-child{padding-left:19px}
