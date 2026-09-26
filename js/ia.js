@@ -93,6 +93,23 @@ export async function quitarTema(filas, slug){
   if (respuestas.some(r => !(r.data || []).length)) throw new Error("row-level security: no se guardó");
 }
 
+/* Lo mismo con un tipo de mejora técnica: se le quita a sus comentarios
+   y conservan lo demás. Sin tema ni mejora, vuelven al Inbox. */
+export async function quitarMejoraTecnica(filas, slug){
+  const cambios = filas.map(x => {
+    const temas = x.temas || [];
+    const mejoras = (x.mejoras || []).filter(m => m !== slug);
+    const tipos = (x.tipos || []).filter(t => t !== "mejora_tecnica" || mejoras.length);
+    const cambio = { mejora_slug: mejoras.join(","), tipos: tipos.join(",") };
+    if (!temas.length && !mejoras.length) cambio.estado = "por_revisar";
+    return sb.from(TABLA).update(cambio).eq("id", x.id).select("id");
+  });
+  const respuestas = await Promise.all(cambios);
+  const fallo = respuestas.find(r => r.error);
+  if (fallo) throw fallo.error;
+  if (respuestas.some(r => !(r.data || []).length)) throw new Error("row-level security: no se guardó");
+}
+
 /* Devolver al Inbox: la fila vuelve a "por_revisar" para clasificarla de
    nuevo. No se borra nada; al clasificarla, lo nuevo reemplaza lo de antes. */
 export async function devolverAlInbox(filas){
@@ -102,30 +119,32 @@ export async function devolverAlInbox(filas){
   if ((data || []).length !== ids.length) throw new Error("row-level security: no se guardó");
 }
 
-/* Renombrar un tema: cambia solo el nombre bonito. El código (slug)
+/* Renombrar un tema o un tipo de mejora técnica: cambia solo el nombre bonito. El código (slug)
    sigue igual, así la IA sigue clasificando con él. El nombre viejo se
    guarda en los sinónimos para que la IA lo siga reconociendo. */
 export async function renombrarTema(slug, nuevo){
-  const actual = catalogo.temas.find(c => c.slug === slug) || { nombre: slug, sinonimos: "" };
+  const actual = catalogo.temas.concat(catalogo.mejoras).find(c => c.slug === slug) ||
+    { nombre: slug, sinonimos: "", tipo: "tema" };
   const lista = String(actual.sinonimos || "").split("|").map(t => t.trim()).filter(Boolean);
   const viejo = String(actual.nombre || "").trim();
   if (viejo && viejo.toLowerCase() !== nuevo.trim().toLowerCase() &&
       !lista.some(t => t.toLowerCase() === viejo.toLowerCase())) lista.push(viejo);
   const { data, error } = await sb.from("categorias_para_ia")
     .update({ nombre: nuevo.trim(), sinonimos: lista.join(" | ") })
-    .eq("slug", slug).eq("tipo", "tema").select("slug");
+    .eq("slug", slug).eq("tipo", actual.tipo).select("slug");
   if (error) throw error;
   if (!(data || []).length) throw new Error("row-level security: no se guardó");
   catalogo.temas = [];   // el catálogo se vuelve a leer con el nombre nuevo
 }
 
 /* ============================================================
-   3. Mejoras (mejoras_ia) y su enlace con los temas (mejora_ia_tema)
+   3. Mejoras (mejoras_ia), su enlace con los temas y las mejoras
+   técnicas (mejora_ia_tema) y sus personas (mejora_ia_persona).
    Una mejora no se borra: para descartarla se cambia su estado.
-   Desvincular solo quita el enlace con el tema.
+   Desvincular solo quita el enlace con el tema o la mejora técnica.
    ============================================================ */
 export const ESTADOS = [["pendiente", "Pendiente"], ["en_curso", "En curso"],
-  ["hecha", "Hecha"], ["descartada", "Descartada"]];
+  ["hecha", "Completada"], ["descartada", "Descartada"]];
 
 export function nombreEstado(e){
   const par = ESTADOS.find(x => x[0] === e);
@@ -133,13 +152,27 @@ export function nombreEstado(e){
 }
 
 export async function cargarMejoras(){
-  const [m, e] = await Promise.all([
+  const [m, e, p] = await Promise.all([
     sb.from("mejoras_ia").select("*").order("creado_en", { ascending:false }),
-    sb.from("mejora_ia_tema").select("*")
+    sb.from("mejora_ia_tema").select("*"),
+    sb.from("mejora_ia_persona").select("*")
   ]);
   if (m.error) throw m.error;
   if (e.error) throw e.error;
-  return { mejoras: m.data || [], enlaces: e.data || [] };
+  if (p.error) throw p.error;
+  return { mejoras: m.data || [], enlaces: e.data || [], personas: p.data || [] };
+}
+
+/* De cada tema o mejora técnica, la mejora enlazada más reciente.
+   El enlace (mejora_ia_tema) sirve para los dos: guarda el código del
+   catálogo, que no se repite entre temas y mejoras técnicas. */
+export function mejoraPorSlug(datos){
+  const porId = new Map(datos.mejoras.map(m => [m.id, m]));
+  const mapa = new Map();
+  datos.enlaces
+    .slice().sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en))
+    .forEach(e => { if (!mapa.has(e.tema_slug) && porId.has(e.mejora_id)) mapa.set(e.tema_slug, porId.get(e.mejora_id)); });
+  return mapa;
 }
 
 export async function crearMejora(titulo, detalle){
@@ -163,6 +196,27 @@ export async function desvincularMejora(mejoraId, slug){
 
 export async function editarMejora(mejoraId, cambios){
   const { data, error } = await sb.from("mejoras_ia").update(cambios).eq("id", mejoraId).select("id");
+  if (error) throw error;
+  if (!(data || []).length) throw new Error("row-level security: no se guardó");
+}
+
+/* Personas de cada mejora (mejora_ia_persona): una o varias. La lista
+   sale de los usuarios del panel (función usuarios_panel), así cada
+   usuario nuevo aparece solo. */
+export async function cargarUsuarios(){
+  const { data, error } = await sb.rpc("usuarios_panel");
+  if (error) throw error;
+  return data || [];
+}
+
+export async function asignarPersona(mejoraId, usuarioId){
+  const { error } = await sb.from("mejora_ia_persona").insert({ mejora_id: mejoraId, usuario_id: usuarioId });
+  if (error) throw error;
+}
+
+export async function quitarPersona(mejoraId, usuarioId){
+  const { data, error } = await sb.from("mejora_ia_persona").delete()
+    .eq("mejora_id", mejoraId).eq("usuario_id", usuarioId).select("mejora_id");
   if (error) throw error;
   if (!(data || []).length) throw new Error("row-level security: no se guardó");
 }

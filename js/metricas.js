@@ -8,7 +8,9 @@
    TEMAS       El ranking de temas pedidos de la Temas vieja, con sus
                mejoras y acciones (vive en ranking-temas.js).
    MEJORAS     Los tipos de mejora técnica, con su promedio de estrellas,
-               la escala de 4 colores y un globito con el detalle.
+               la escala de 4 colores y un globito con el detalle. Como
+               en temas, cada tipo puede tener su mejora: crear, ver y
+               desvincular, con el filtro con / sin mejora.
 
    Los rankings cuentan solo lo ya clasificado (auto o revisado): lo
    que la IA dejó por revisar vive en el Inbox y suma aquí en cuanto
@@ -18,9 +20,12 @@
    Lee public.v_ia_feedback, public.v_ia_mejoras, mejoras_ia y
    mejora_ia_tema.
    ============================================================ */
-import { sb, $, COLORES, escapar, num, pct, avisar, traducirError } from "./nucleo.js";
-import { RUIDO, cargarCatalogo, cargarMejoras } from "./ia.js";
+import { sb, $, COLORES, escapar, num, pct, avisar, traducirError, abrirVentana, cerrarVentana,
+  leer } from "./nucleo.js";
+import { RUIDO, cargarCatalogo, cargarMejoras, mejoraPorSlug, nombreDe, renombrarTema,
+  quitarMejoraTecnica } from "./ia.js";
 import { ventanaComentarios, plural } from "./ia-ventanas.js";
+import { ventanaCrearMejora, ventanaVerMejora, ventanaDesvincular } from "./mejora-ventanas.js";
 import * as rankingTemas from "./ranking-temas.js";
 
 /* ============================================================
@@ -38,6 +43,14 @@ export async function render(caja){
     const ayuda = $("#ayuda-mejoras");
     ayuda.hidden = !ayuda.hidden;
     $("#btn-ayuda-mejoras").setAttribute("aria-expanded", String(!ayuda.hidden));
+  });
+  pintarChipsMejoras();
+  $("#f-foco-mejoras").addEventListener("click", e => {
+    const b = e.target.closest("button[data-v]");
+    if (!b) return;
+    focoMejoras = b.dataset.v;
+    pintarChipsMejoras();
+    if (ultimo) pintarMejoras(ultimo.lista, ultimo.filas);
   });
   await cargar();
 }
@@ -105,6 +118,14 @@ ${rankingTemas.armazon()}
     pocas notas el promedio puede engañar: fíjate en cuántas lo forman.</p>
     <p class="mini"><b>Toca una fila</b> para ver los comentarios de ese tipo: desde ahí puedes reclasificar
     cualquiera o devolverlo al Inbox, igual que en el ranking de temas.</p>
+    <p class="mini"><b>La mejora</b> se enlaza al tipo completo, igual que en temas: <b>Crear mejora</b> hace
+    una nueva o la enlaza a una que ya existe, <b>Ver mejora</b> la edita y <b>Desvincular</b> se la quita
+    sin borrarla. <b>El lápiz</b> cambia el nombre (la IA sigue usando el mismo) y <b>la caneca</b> le quita
+    ese tipo a sus comentarios sin borrar nada: lo que queda sin clasificar vuelve al Inbox.</p>
+  </div>
+  <div class="filtros-fila">
+    <span class="rotulo">Mejora</span>
+    <div class="filtros" id="f-foco-mejoras" role="group" aria-label="Estado de mejora"></div>
   </div>
   <div id="mejoras-top"><p class="vacio">Cargando…</p></div>
 </section>
@@ -136,6 +157,8 @@ async function cargar(){
   pintarResumen(fb.data || []);
   pintarEstrellas(fb.data || []);
   rankingTemas.pintar(fb.data || [], datosMejoras);
+  mejorasIA = datosMejoras.mejoras;
+  mejoraDe = mejoraPorSlug(datosMejoras);
   pintarMejoras(mj.data || [], fb.data || []);
 }
 
@@ -294,8 +317,23 @@ function conectarGlobo(puntos){
    Barras como las de Tipo de problema. Ruido va en gris al final:
    se cuenta, pero no es una mejora que haya que hacer.
    ============================================================ */
-function pintarMejoras(lista, filas){
-  if (!lista.length){
+let focoMejoras = "todas";
+let mejorasIA = [];              // mejoras_ia
+let mejoraDe = new Map();        // tipo de mejora técnica -> mejora enlazada
+let ultimo = null;               // lo último pintado, para volver a filtrar
+
+function pintarChipsMejoras(){
+  $("#f-foco-mejoras").innerHTML = [["todas","Todos"], ["sin_accion","Sin mejora"], ["con_accion","Con mejora"]]
+    .map(par => '<button class="chip" data-v="' + par[0] + '" aria-pressed="' + (par[0] === focoMejoras) + '">' +
+      escapar(par[1]) + '</button>').join("");
+}
+
+function pintarMejoras(todas, filas){
+  ultimo = { lista: todas, filas: filas };
+  /* El filtro deja fuera Ruido: no es una mejora por hacer */
+  const lista = focoMejoras === "todas" ? todas : todas.filter(m => m.slug !== RUIDO &&
+    (focoMejoras === "con_accion") === mejoraDe.has(m.slug));
+  if (!todas.length){
     $("#mejoras-top").innerHTML = '<p class="vacio">Todavía no hay mejoras clasificadas.</p>';
     return;
   }
@@ -315,18 +353,24 @@ function pintarMejoras(lista, filas){
     formasDe.set(m, formas);
   }));
   const orden = lista.filter(m => m.slug !== RUIDO).concat(lista.filter(m => m.slug === RUIDO));
-  const tope = Math.max(1, ...lista.map(m => m.veces));
+  const tope = Math.max(1, ...todas.map(m => m.veces));
+  if (!orden.length){
+    $("#mejoras-top").innerHTML = '<p class="vacio">Ningún tipo cumple ese filtro. Prueba con Todos.</p>';
+    return;
+  }
   $("#mejoras-top").innerHTML = orden.map((m, i) => {
     const prom = m.promedio_estrellas != null ? Number(m.promedio_estrellas) : null;
     const color = m.slug === RUIDO ? "var(--border2)" : (prom != null ? colorNota(prom) : "var(--brand)");
     const formas = (formasDe.get(m.slug) || new Set()).size;
     const enlace = formas > 1 ? formas + " formas de decirlo" : (m.veces === 1 ? "1 comentario" : m.veces + " comentarios");
     return '<div class="fila pinchable" data-i="' + i + '" tabindex="0" role="button" title="Ver sus comentarios">' +
-      '<span class="fila-etq"><span class="fila-nombre">' + escapar(m.nombre) + '</span>' +
+      '<span class="fila-etq"><span class="fila-nombre-linea"><span class="fila-nombre">' + escapar(m.nombre) +
+        '</span>' + (m.slug === RUIDO ? '' : ICONOS) + '</span>' +
         '<span class="enlace-formas">' + enlace + '</span></span>' +
       '<span class="barra"><span style="width:' + (m.veces / tope * 100) + '%;background:' + color + '"></span></span>' +
       '<span class="fila-num tabular"><b>' + num(m.veces) + '</b> · ' +
         (prom != null ? prom.toFixed(1).replace(".", ",") + "★" : "—") + '</span>' +
+      accionesMejora(m) +
     '</div>';
   }).join("") +
   '<div class="globo-mes" id="globo-mejora" role="tooltip" hidden></div>' +
@@ -367,8 +411,15 @@ function pintarMejoras(lista, filas){
     fila.addEventListener("mouseleave", ocultar);
     fila.addEventListener("focus", () => mostrar(fila));
     fila.addEventListener("blur", ocultar);
-    fila.addEventListener("click", () => { ocultar(); abrirMejora(orden[Number(fila.dataset.i)]); });
-    fila.addEventListener("keydown", e => { if (e.key === "Enter"){ ocultar(); abrirMejora(orden[Number(fila.dataset.i)]); } });
+    fila.addEventListener("click", e => {
+      ocultar();
+      const bt = e.target.closest("button[data-mej-accion], button[data-tema-accion]");
+      if (bt){ accionMejora(bt.dataset.mejAccion || bt.dataset.temaAccion, orden[Number(fila.dataset.i)], clasificadas); return; }
+      abrirMejora(orden[Number(fila.dataset.i)]);
+    });
+    fila.addEventListener("keydown", e => {
+      if (e.key === "Enter" && e.target === fila){ ocultar(); abrirMejora(orden[Number(fila.dataset.i)]); }
+    });
   });
 
   /* Tocar una fila: sus comentarios, con Reclasificar y Devolver al Inbox */
@@ -385,6 +436,94 @@ function pintarMejoras(lista, filas){
       alCambiar: async texto => { avisar(texto, "ok", "#aviso-panel"); await cargar(); }
     });
   }
+}
+
+/* Marca y botones de la mejora de cada tipo, como en el ranking de
+   temas. Ruido no lleva: no es una mejora por hacer. */
+function accionesMejora(m){
+  if (m.slug === RUIDO) return '<span class="fila-mejora"></span>';
+  const tiene = mejoraDe.has(m.slug);
+  return '<span class="fila-mejora">' +
+    (tiene ? '<span class="etq lima">con mejora</span>' : '<span class="etq alerta">sin mejora</span>') +
+    /* data-tema-accion: los mismos botones del ranking de temas (icono
+       de cadena, ojo y cadena rota, con su globito), que salen del CSS */
+    (tiene
+      ? '<button class="boton-chico" data-tema-accion="vermejora">Ver mejora</button>' +
+        '<button class="boton-chico" data-tema-accion="desvincular">Desvincular</button>'
+      : '<button class="boton-chico" data-tema-accion="mejora">Crear mejora</button>') +
+    '</span>';
+}
+
+function accionMejora(accion, m, clasificadas){
+  const alCambiar = async texto => { avisar(texto, "ok", "#aviso-panel"); await cargar(); };
+  if (accion === "renombrar"){ ventanaRenombrarTipo(m, alCambiar); return; }
+  if (accion === "quitar"){
+    ventanaQuitarTipo(m, clasificadas.filter(x => (x.mejoras || []).indexOf(m.slug) > -1), alCambiar);
+    return;
+  }
+  const enlazada = mejoraDe.get(m.slug);
+  if (accion === "mejora" || !enlazada)
+    ventanaCrearMejora({ slug: m.slug, n: m.veces, mejoras: mejorasIA, que: "mejora técnica", alCambiar: alCambiar });
+  else if (accion === "vermejora") ventanaVerMejora({ mejora: enlazada, slug: m.slug, alCambiar: alCambiar });
+  else if (accion === "desvincular")
+    ventanaDesvincular({ mejora: enlazada, slug: m.slug, que: "mejora técnica", alCambiar: alCambiar });
+}
+
+/* ✏️ y 🗑️ de cada tipo, como en el ranking de temas */
+const ICONOS =
+  '<button class="icono-btn" data-mej-accion="renombrar" title="Renombrar" aria-label="Renombrar">' +
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L18 10l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button>' +
+  '<button class="icono-btn peligro" data-mej-accion="quitar" title="Quitar este tipo de sus comentarios" ' +
+    'aria-label="Quitar este tipo de sus comentarios">' +
+    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M10 4h4"/><path d="M6 7l1 13h10l1-13"/>' +
+    '<path d="M10 11v6M14 11v6"/></svg></button>';
+
+/* ✏️ Renombrar: solo el nombre bonito; la IA sigue con el mismo código */
+function ventanaRenombrarTipo(m, alCambiar){
+  const actual = nombreDe(m.slug);
+  abrirVentana({
+    titulo: "Renombrar mejora técnica",
+    guia: actual,
+    cuerpo:
+      '<input class="campo" id="r-nombre" value="' + escapar(actual) + '">' +
+      '<p class="mini">Cambia solo el nombre que ves en el panel. La IA sigue clasificando con el mismo ' +
+      'código (' + escapar(m.slug) + '), así que lo que ya llegó y lo que llegue después se queda junto aquí. ' +
+      'El nombre viejo se guarda como sinónimo para que la IA lo siga reconociendo.</p>',
+    aceptar: "Guardar nombre",
+    alAceptar: async () => {
+      const nuevo = leer("r-nombre");
+      if (!nuevo){ avisar("Escribe el nombre nuevo.", "mal", "#aviso-forma"); return false; }
+      if (nuevo === actual) return;
+      await renombrarTema(m.slug, nuevo);
+      cerrarVentana();
+      await alCambiar("Mejora técnica renombrada: “" + nuevo + "”.");
+      return false;
+    }
+  });
+}
+
+/* 🗑️ Quitar: le quita el tipo a todos sus comentarios, sin borrar nada */
+function ventanaQuitarTipo(m, lista, alCambiar){
+  const vuelven = lista.filter(x => (x.mejoras || []).length === 1 && !(x.temas || []).length).length;
+  abrirVentana({
+    titulo: "Quitar mejora técnica",
+    guia: nombreDe(m.slug) + " · " + plural(lista.length, "comentario", "comentarios"),
+    cuerpo:
+      '<p>¿Quitar “' + escapar(nombreDe(m.slug)) + '” de sus ' + plural(lista.length, "comentario", "comentarios") + '?</p>' +
+      '<p class="mini">No se borra ningún comentario ni el tipo del catálogo: la IA lo puede seguir usando. ' +
+      'Los que tenían otras clasificaciones las conservan.' +
+      (vuelven ? ' <b>' + plural(vuelven, "comentario se queda", "comentarios se quedan") +
+        ' sin clasificar y vuelve' + (vuelven === 1 ? '' : 'n') + ' al Inbox</b> para que lo reclasifiques.' : '') +
+      '</p>',
+    aceptar: "Quitar",
+    alAceptar: async () => {
+      await quitarMejoraTecnica(lista, m.slug);
+      cerrarVentana();
+      await alCambiar("“" + nombreDe(m.slug) + "” quitado de " + plural(lista.length, "comentario", "comentarios") +
+        (vuelven ? " · " + vuelven + " volvieron al Inbox" : "") + ".");
+      return false;
+    }
+  });
 }
 
 /* ============================================================

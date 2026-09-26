@@ -20,9 +20,10 @@
    ============================================================ */
 import { $, escapar, fecha, num, pct, abrirVentana, avisar, cerrarVentana, leer,
   traducirError } from "./nucleo.js";
-import { catalogo, nombreDe, nombrePais, nombreOrigen, quitarTema, renombrarTema, RUIDO, ESTADOS, nombreEstado,
-  crearMejora, enlazarMejora, desvincularMejora, editarMejora } from "./ia.js";
+import { catalogo, nombreDe, nombrePais, nombreOrigen, quitarTema, renombrarTema, RUIDO,
+  mejoraPorSlug } from "./ia.js";
 import { ventanaClasificar, ventanaComentarios } from "./ia-ventanas.js";
+import { ventanaCrearMejora, ventanaVerMejora, ventanaDesvincular } from "./mejora-ventanas.js";
 
 let filas = [];                 // v_ia_feedback ya clasificado
 let mejoras = [];               // mejoras_ia
@@ -132,11 +133,7 @@ function pintarChips(){
 export function pintar(todas, datosMejoras){
   filas = (todas || []).filter(x => x.estado !== "por_revisar");
   mejoras = datosMejoras.mejoras;
-  const porId = new Map(mejoras.map(m => [m.id, m]));
-  mejoraDe = new Map();
-  datosMejoras.enlaces
-    .slice().sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en))
-    .forEach(e => { if (!mejoraDe.has(e.tema_slug) && porId.has(e.mejora_id)) mejoraDe.set(e.tema_slug, porId.get(e.mejora_id)); });
+  mejoraDe = mejoraPorSlug(datosMejoras);
   grupos = agrupar();
   pintarRanking();
 }
@@ -260,9 +257,11 @@ function accionDeTema(bt){
   const accion = bt.dataset.temaAccion;
   if (accion === "renombrar") ventanaRenombrar(slug);
   if (accion === "borrar") ventanaDesetiquetar(slug);
-  if (accion === "mejora") ventanaMejora(slug);
-  if (accion === "vermejora") ventanaVerMejora(slug);
-  if (accion === "desvincular") ventanaDesvincular(slug);
+  const m = mejoraDe.get(slug);
+  if (accion === "mejora" || (accion === "vermejora" && !m))
+    ventanaCrearMejora({ slug: slug, n: comentariosDe(slug).length, mejoras: mejoras, alCambiar: trasCambio });
+  else if (accion === "vermejora") ventanaVerMejora({ mejora: m, slug: slug, alCambiar: trasCambio });
+  if (accion === "desvincular" && m) ventanaDesvincular({ mejora: m, slug: slug, alCambiar: trasCambio });
 }
 
 async function trasCambio(texto){
@@ -437,98 +436,6 @@ function tarjetaVer(x, slug){
     '<button class="boton-chico" data-accion="reclasificar" data-id="' + id + '">' + ETIQUETA + 'Reclasificar</button>' +
     '<button class="boton-chico" data-accion="quitar" data-id="' + id + '">Quitar de este tema</button>' +
     '</div></article>';
-}
-
-/* Crear mejora: nueva, o enlazar a una que ya existe */
-function ventanaMejora(slug){
-  const n = comentariosDe(slug).length;
-  const sugerido = nombreDe(slug).slice(0, 80);
-  abrirVentana({
-    titulo: "Mejora del tema",
-    guia: sugerido + " · " + plural(n, "comentario", "comentarios"),
-    cuerpo:
-      '<p class="mini">La mejora queda enlazada a este tema completo. Hoy lo piden ' + plural(n, "comentario", "comentarios") +
-      ', y los que lleguen después quedan cubiertos igual.</p>' +
-      '<span class="etiqueta">A qué mejora pertenece</span>' +
-      '<select class="campo" id="m-mejora">' +
-      '<option value="">Crear una mejora nueva</option>' +
-      mejoras.map(m => '<option value="' + m.id + '">#' + m.id + ' · ' + escapar(m.titulo) +
-        ' · ' + escapar(nombreEstado(m.estado)) + '</option>').join("") +
-      '</select>' +
-      '<p class="mini">Si este tema es otra forma de decir algo que ya estás trabajando, elige la mejora ' +
-      'que ya existe y el tema queda enlazado a ella.</p>' +
-      '<div id="m-nueva">' +
-      '<input class="campo" id="m-titulo" placeholder="Título de la mejora" value="' + escapar(sugerido) + '">' +
-      '<textarea class="campo" id="m-detalle" placeholder="Qué vamos a cambiar y por qué"></textarea>' +
-      '</div>',
-    aceptar: "Guardar",
-    ancha: true,
-    alAceptar: async () => {
-      let id = leer("m-mejora");
-      if (!id){
-        const titulo = leer("m-titulo");
-        if (!titulo){ avisar("Ponle un título a la mejora.", "mal", "#aviso-forma"); return false; }
-        id = await crearMejora(titulo, leer("m-detalle"));
-      }
-      await enlazarMejora(Number(id), slug);
-      cerrarVentana();
-      await trasCambio("Mejora enlazada a “" + nombreDe(slug) + "”.");
-      return false;
-    }
-  });
-  const sel = document.getElementById("m-mejora");
-  sel.addEventListener("change", () => { document.getElementById("m-nueva").hidden = !!sel.value; });
-}
-
-/* 👁 Ver mejora: sus datos, editables, y los temas que atiende */
-function ventanaVerMejora(slug){
-  const m = mejoraDe.get(slug);
-  if (!m){ ventanaMejora(slug); return; }
-  abrirVentana({
-    titulo: "Mejora #" + m.id,
-    guia: "Creada el " + fecha(m.creado_en) + " · enlazada a " + nombreDe(slug),
-    cuerpo:
-      '<span class="etiqueta">Título</span>' +
-      '<input class="campo" id="v-titulo" value="' + escapar(m.titulo) + '">' +
-      '<span class="etiqueta">Detalle</span>' +
-      '<textarea class="campo" id="v-detalle" placeholder="Qué vamos a cambiar y por qué">' + escapar(m.detalle || "") + '</textarea>' +
-      '<span class="etiqueta">Estado</span>' +
-      '<select class="campo" id="v-estado">' + ESTADOS.map(e =>
-        '<option value="' + e[0] + '"' + (e[0] === m.estado ? " selected" : "") + '>' + e[1] + '</option>').join("") +
-      '</select>' +
-      '<p class="mini">Una mejora no se borra: si ya no va, ponla en Descartada y la historia se conserva.</p>',
-    aceptar: "Guardar cambios",
-    ancha: true,
-    alAceptar: async () => {
-      const titulo = leer("v-titulo");
-      if (!titulo){ avisar("La mejora necesita un título.", "mal", "#aviso-forma"); return false; }
-      await editarMejora(m.id, { titulo: titulo, detalle: leer("v-detalle"), estado: leer("v-estado") || m.estado });
-      cerrarVentana();
-      await trasCambio("Mejora #" + m.id + " actualizada.");
-      return false;
-    }
-  });
-}
-
-/* Desvincular: le quita la mejora al tema, sin borrarla */
-function ventanaDesvincular(slug){
-  const m = mejoraDe.get(slug);
-  if (!m) return;
-  abrirVentana({
-    titulo: "Desvincular mejora",
-    guia: nombreDe(slug),
-    cuerpo:
-      '<p>¿Quitarle la mejora “' + escapar(m.titulo) + '” a “' + escapar(nombreDe(slug)) + '”?</p>' +
-      '<p class="mini">La mejora no se borra y sigue enlazada a sus otros temas, si tiene. El tema ' +
-      'vuelve a quedar sin mejora.</p>',
-    aceptar: "Desvincular",
-    alAceptar: async () => {
-      await desvincularMejora(m.id, slug);
-      cerrarVentana();
-      await trasCambio("Mejora desvinculada de “" + nombreDe(slug) + "”.");
-      return false;
-    }
-  });
 }
 
 /* ============================================================

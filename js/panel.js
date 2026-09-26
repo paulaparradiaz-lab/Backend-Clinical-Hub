@@ -6,11 +6,13 @@
 import { sb, $, estado, escapar, avisar, ocupado, traducirError,
          cerrarVentana } from "./nucleo.js";
 import * as feedback from "./pestana-feedback.js";
+import * as mejoras from "./pestana-mejoras.js";
 
 /* Aquí crece el panel: añade una sección con su render y listo.
-   Feedback lee solo las tablas de la IA (ver ia.js). */
+   Feedback y Mejoras leen solo las tablas de la IA (ver ia.js). */
 const SECCIONES = [
   { id:"feedback", nombre:"Feedback", render: feedback.render },
+  { id:"mejoras",  nombre:"Mejoras",  render: mejoras.render },
   { id:"ventas",   nombre:"Ventas" },
   { id:"hitos",    nombre:"Hitos" }
 ];
