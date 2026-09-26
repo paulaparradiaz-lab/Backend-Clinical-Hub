@@ -16,9 +16,7 @@ export const COLORES = { 1:"var(--s1)", 2:"var(--s2)", 3:"var(--s3)", 4:"var(--s
 
 /* Estado compartido entre pestañas */
 export const estado = {
-  usuario:   null,  // { id, correo }
-  equipo:    [],    // public.equipo
-  etiquetas: []     // catálogo de public.etiquetas
+  usuario: null     // { id, correo }
 };
 
 /* ============================================================
@@ -124,33 +122,4 @@ export function leer(id){
   if (!e) return null;
   const valor = String(e.value || "").trim();
   return valor === "" ? null : valor;
-}
-
-/* ============================================================
-   4. Catálogos: equipo y etiquetas
-   ============================================================ */
-export async function cargarCatalogos(){
-  const [eq, et] = await Promise.all([
-    sb.from("equipo").select("*").eq("activo", true).order("nombre"),
-    sb.from("etiquetas").select("*").eq("activa", true).order("orden")
-  ]);
-  estado.equipo    = eq.data || [];
-  estado.etiquetas = et.data || [];
-}
-
-export function opcionesEquipo(seleccionado){
-  return '<option value="">Sin asignar</option>' + estado.equipo.map(p =>
-    '<option value="' + p.id + '"' + (p.id === seleccionado ? " selected" : "") + '>' + escapar(p.nombre) + '</option>'
-  ).join("");
-}
-
-export function opciones(lista, seleccionado){
-  return lista.map(par =>
-    '<option value="' + par[0] + '"' + (par[0] === seleccionado ? " selected" : "") + '>' + escapar(par[1]) + '</option>'
-  ).join("");
-}
-
-export function nombreEtiqueta(clave){
-  const e = estado.etiquetas.find(x => x.clave === clave);
-  return e ? e.nombre : clave;
 }
