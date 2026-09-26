@@ -501,7 +501,8 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
    tiene enlazado (temas y mejoras globales) y sus personas. */
 /* PESTAÑA IMPACTO: una tarjeta por indicador con su gráfica de
    críticas (en el color del indicador) y sus mejoras encima */
-.impacto-indicadores{display:grid;grid-template-columns:repeat(auto-fill,minmax(420px,1fr));gap:14px;margin-top:14px}
+/* Una debajo de la otra, a todo el ancho: la línea de tiempo crece con la historia */
+.impacto-indicadores{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-top:14px}
 .impacto-indicador{
   display:flex;flex-direction:column;gap:10px;min-width:0;padding:16px 16px 14px;border-radius:18px;
   background:var(--surface2);border:1px solid transparent;
@@ -519,7 +520,18 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .impacto-grafica .area{fill:var(--c);opacity:.16}
 .impacto-grafica .trazo{fill:none;stroke:var(--c);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
 .impacto-grafica .punto{fill:var(--c);stroke:var(--surface2);stroke-width:2}
-.impacto-grafica .franja{fill:var(--c);opacity:.09}
+/* Semanas con menos de 10 opiniones: punto gris abajo, sin porcentaje */
+.impacto-grafica .pocos{fill:var(--surface2);stroke:var(--border2);stroke-width:1.5}
+.impacto-grafica .tendencia{fill:none;stroke:var(--ink);stroke-width:1.6;stroke-dasharray:5 4;opacity:.55;stroke-linecap:round}
+.impacto-grafica .tendencia-txt{font-size:10.5px;font-weight:700;fill:var(--muted);paint-order:stroke;stroke:var(--surface2);stroke-width:4px;stroke-linejoin:round}
+/* Leyenda de la gráfica: qué es cada línea y cada marca */
+.impacto-leyenda{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--faint);margin-top:-2px}
+.impacto-leyenda span{display:inline-flex;align-items:center;gap:6px}
+.impacto-leyenda i{display:inline-block;flex:none}
+.ley-linea{width:18px;height:3px;border-radius:2px;background:var(--c)}
+.ley-tendencia{width:18px;height:0;border-top:2px dashed var(--ink);opacity:.55}
+.ley-pocos{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--border2);background:var(--surface2)}
+.ley-hito{display:grid!important;place-items:center;width:16px;height:16px;border-radius:50%;background:var(--ink);color:var(--surface);font-style:normal;font-size:9px;font-weight:700}
 .impacto-grafica .hito line{stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 3}
 .impacto-grafica .hito circle{fill:var(--ink)}
 .impacto-grafica .hito text{fill:var(--surface);font-size:10.5px;font-weight:700}
@@ -532,10 +544,6 @@ main{max-width:1080px;margin:0 auto;padding:32px 22px 72px;animation:ch-aparece 
 .impacto-txt{display:flex;flex-direction:column;min-width:0;flex:1}
 .impacto-txt b{font-size:13.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .impacto-txt small{font-size:11.5px;color:var(--faint)}
-.impacto-res{flex:none;font-size:15px;font-weight:800;letter-spacing:-.02em;color:var(--faint);font-variant-numeric:tabular-nums}
-.impacto-res.baja{color:var(--brand-ink)}
-.impacto-res.sube{color:var(--warn)}
-.impacto-res.espera{font-size:12.5px;font-weight:600}
 .impacto-sin{margin:0}
 @media (max-width:600px){
   .impacto-indicadores{grid-template-columns:minmax(0,1fr)}
