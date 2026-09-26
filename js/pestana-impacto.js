@@ -39,6 +39,12 @@ const DIA = 864e5;
 const ICONO_INDICADOR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>';
 
 let indicadores = [];
+let escuchando = false;           // el aviso de cambio de tamaño se pone una sola vez
+
+/* Alto de cada gráfica: el mismo de la de estrellas en Métricas. Se
+   dibuja al ancho real de su tarjeta (también como aquella), así la letra
+   no se achica en pantallas angostas. */
+const ALTO = 210;
 
 /* ============================================================
    1. Armazón
@@ -222,8 +228,19 @@ function pintar(){
       'en el ranking de mejoras globales de Feedback › Métricas.</p>';
     return;
   }
+  /* El ancho real de la gráfica: el de la lista menos el relleno de la tarjeta */
+  anchoGrafica = Math.max(280, Math.round(($("#impacto-indicadores").clientWidth || 640) - 32));
   $("#impacto-indicadores").innerHTML = indicadores.map(tarjeta).join("");
+  if (!escuchando){
+    escuchando = true;
+    let espera;
+    window.addEventListener("resize", () => {
+      clearTimeout(espera);
+      espera = setTimeout(() => { if ($("#impacto-indicadores") && indicadores.length) pintar(); }, 150);
+    });
+  }
 }
+let anchoGrafica = 640;
 
 function tarjeta(o, i){
   return '<article class="impacto-indicador" style="--c:' + colorIndicador(o.slug) + '">' +
@@ -267,7 +284,7 @@ function renglon(r){
    línea punteada es la tendencia: las críticas y las opiniones de los
    últimos 4 (semanas) o 3 (meses) periodos juntos. */
 function grafica(o){
-  const w = 640, h = 170, izq = 34, der = 12, arr = 30, abj = 24;
+  const w = anchoGrafica, h = ALTO, izq = 36, der = 14, arr = 34, abj = 28;
   const P = o.periodos, N = P.length;
   const conDato = P.filter(p => p.pct !== null).map(p => p.pct);
   const tope = Math.max(10, Math.ceil(Math.max(0, ...conDato) / 10) * 10);
