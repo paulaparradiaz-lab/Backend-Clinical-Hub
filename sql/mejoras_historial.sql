@@ -92,3 +92,8 @@ where m.estado <> 'pendiente'
 -- Las que ya estaban completadas estrenan su fecha de completada (hoy).
 update public.mejoras_ia set completada_en = now()
 where estado = 'hecha' and completada_en is null;
+
+-- Las funciones de los disparadores no se llaman desde el panel: nadie
+-- de afuera las puede ejecutar (los disparadores siguen funcionando).
+revoke execute on function public.anotar_estado_mejora() from public, anon, authenticated;
+revoke execute on function public.fecha_completada_mejora() from public, anon, authenticated;
